@@ -1,10 +1,12 @@
-import { QueryProvider } from '@/components/providers/query-provider';
-import { ThemeProvider } from '@/components/providers/theme-provider';
-import { cn } from '@/lib/utils';
+import './globals.css';
+
 import type { Metadata } from 'next';
 import { Geist } from 'next/font/google';
 import localFont from 'next/font/local';
-import './globals.css';
+
+import { QueryProvider } from '@/components/providers/query-provider';
+import { ThemeProvider } from '@/components/providers/theme-provider';
+import { cn } from '@/lib/utils';
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 
