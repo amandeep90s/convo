@@ -1,0 +1,422 @@
+generator client {
+    provider     = "prisma-client"
+    output       = "../src/generated/prisma"
+    moduleFormat = "esm"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+model User {
+    id            String     @id @default(uuid(7)) @db.Uuid
+    phone         String?    @unique @db.VarChar(20)
+    email         String     @unique @db.VarChar(100)
+    username      String     @unique @db.VarChar(50)
+    name          String     @db.VarChar(100)
+    about         String?    @db.Text
+    avatar_url    String?    @db.Text
+    password_hash String?    @db.Text
+    status        UserStatus @default(active)
+    created_at    DateTime   @default(now()) @db.Timestamptz(6)
+    updated_at    DateTime   @updatedAt @db.Timestamptz(6)
+    deleted_at    DateTime?  @db.Timestamptz(6)
+
+    settings                    UserSettings?
+    devices                     UserDevice[]
+    sessions                    UserSession[]
+    contacts                    Contact[]             @relation("ContactOwner")
+    contacted_by                Contact[]             @relation("ContactUser")
+    blocked_users               BlockedUser[]         @relation("Blocker")
+    blocked_by                  BlockedUser[]         @relation("BlockedUser")
+    created_conversations       Conversation[]        @relation("ConversationCreator")
+    group_created_conversations Group[]               @relation("GroupCreator")
+    conversation_memberships    ConversationMember[]
+    sent_messages               Message[]             @relation("MessageSender")
+    message_reactions           MessageReaction[]
+    message_receipts            MessageReceipt[]
+    initiated_calls             Call[]                @relation("CallInitiator")
+    call_participations         CallParticipant[]
+    private_conversations_a     PrivateConversation[] @relation("PrivateConversationUserA")
+    private_conversations_b     PrivateConversation[] @relation("PrivateConversationUserB")
+    deleted_messages            Message[]             @relation("MessageDeletedBy")
+    created_group_invites       GroupInvite[]         @relation("GroupInviteCreator")
+    pinned_messages             PinnedMessage[]       @relation("PinnedBy")
+
+    @@map("users")
+}
+
+model UserSettings {
+    user_id              String     @id @db.Uuid
+    language             String     @default("en") @db.VarChar(10)
+    theme                String     @default("system") @db.VarChar(20)
+    read_receipts        Boolean    @default(true)
+    last_seen_visibility Visibility @default(everyone)
+    online_visibility    Visibility @default(contacts)
+    profile_visibility   Visibility @default(everyone)
+    notification_enabled Boolean    @default(true)
+    created_at           DateTime   @default(now()) @db.Timestamptz(6)
+    updated_at           DateTime   @updatedAt @db.Timestamptz(6)
+
+    user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+    @@map("user_settings")
+}
+
+model UserDevice {
+    id           String     @id @default(uuid(7)) @db.Uuid
+    user_id      String     @db.Uuid
+    device_type  DeviceType
+    device_name  String?    @db.VarChar(100)
+    push_token   String?    @db.Text
+    public_key   String?    @db.Text
+    last_seen_at DateTime?  @db.Timestamptz(6)
+    created_at   DateTime   @default(now()) @db.Timestamptz(6)
+    revoked_at   DateTime?  @db.Timestamptz(6)
+
+    user     User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+    sessions UserSession[]
+
+    @@index([user_id])
+    @@map("user_devices")
+}
+
+model UserSession {
+    id                 String    @id @default(uuid(7)) @db.Uuid
+    user_id            String    @db.Uuid
+    device_id          String    @db.Uuid
+    refresh_token_hash String    @db.Text
+    ip_address         String?   @db.Inet
+    user_agent         String?   @db.Text
+    expires_at         DateTime  @db.Timestamptz(6)
+    created_at         DateTime  @default(now()) @db.Timestamptz(6)
+    revoked_at         DateTime? @db.Timestamptz(6)
+
+    user   User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+    device UserDevice @relation(fields: [device_id], references: [id], onDelete: Cascade)
+
+    @@index([user_id])
+    @@index([device_id])
+    @@map("user_sessions")
+}
+
+model Contact {
+    user_id         String   @db.Uuid
+    contact_user_id String   @db.Uuid
+    nickname        String?  @db.VarChar(100)
+    created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+    user         User @relation("ContactOwner", fields: [user_id], references: [id], onDelete: Cascade)
+    contact_user User @relation("ContactUser", fields: [contact_user_id], references: [id], onDelete: Cascade)
+
+    @@id([user_id, contact_user_id])
+    @@index([contact_user_id])
+    @@map("contacts")
+}
+
+model BlockedUser {
+    user_id         String   @db.Uuid
+    blocked_user_id String   @db.Uuid
+    created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+    user         User @relation("Blocker", fields: [user_id], references: [id], onDelete: Cascade)
+    blocked_user User @relation("BlockedUser", fields: [blocked_user_id], references: [id], onDelete: Cascade)
+
+    @@id([user_id, blocked_user_id])
+    @@index([blocked_user_id])
+    @@map("blocked_users")
+}
+
+model Conversation {
+    id                               String           @id @default(uuid(7)) @db.Uuid
+    type                             ConversationType
+    name                             String?          @db.VarChar(100)
+    avatar_url                       String?          @db.Text
+    created_by                       String           @db.Uuid
+    last_message_id                  String?          @db.Uuid
+    last_message_at                  DateTime?        @db.Timestamptz(6)
+    disappearing_message_ttl_seconds Int?
+    created_at                       DateTime         @default(now()) @db.Timestamptz(6)
+    updated_at                       DateTime         @updatedAt @db.Timestamptz(6)
+    deleted_at                       DateTime?        @db.Timestamptz(6)
+
+    creator              User                 @relation("ConversationCreator", fields: [created_by], references: [id])
+    private_conversation PrivateConversation?
+    group                Group?
+    members              ConversationMember[]
+    messages             Message[]
+    pinned_messages      PinnedMessage[]
+    calls                Call[]
+
+    @@index([created_by])
+    @@index([last_message_at])
+    @@map("conversations")
+}
+
+model PrivateConversation {
+    conversation_id String @id @db.Uuid
+    user_a_id       String @db.Uuid
+    user_b_id       String @db.Uuid
+    pair_key        String @unique @db.VarChar(73)
+
+    conversation Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+    user_a       User         @relation("PrivateConversationUserA", fields: [user_a_id], references: [id])
+    user_b       User         @relation("PrivateConversationUserB", fields: [user_b_id], references: [id])
+
+    @@index([user_a_id])
+    @@index([user_b_id])
+    @@map("private_conversations")
+}
+
+model Group {
+    conversation_id String   @id @db.Uuid
+    description     String?  @db.Text
+    created_by      String   @db.Uuid
+    created_at      DateTime @default(now()) @db.Timestamptz(6)
+    updated_at      DateTime @updatedAt @db.Timestamptz(6)
+
+    conversation Conversation  @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+    creator      User          @relation("GroupCreator", fields: [created_by], references: [id])
+    invites      GroupInvite[]
+
+    @@index([created_by])
+    @@map("groups")
+}
+
+model ConversationMember {
+    conversation_id      String             @db.Uuid
+    user_id              String             @db.Uuid
+    role                 MemberRole         @default(member)
+    joined_at            DateTime           @default(now()) @db.Timestamptz(6)
+    left_at              DateTime?          @db.Timestamptz(6)
+    muted_until          DateTime?          @db.Timestamptz(6)
+    notification_policy  NotificationPolicy @default(all)
+    archived_at          DateTime?          @db.Timestamptz(6)
+    last_read_message_id String?            @db.Uuid
+    created_at           DateTime           @default(now()) @db.Timestamptz(6)
+
+    conversation Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+    user         User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+    @@id([conversation_id, user_id])
+    @@index([user_id])
+    @@map("conversation_members")
+}
+
+model Message {
+    id              String               @id @default(uuid(7)) @db.Uuid
+    conversation_id String               @db.Uuid
+    sender_id       String               @db.Uuid
+    reply_to_id     String?              @db.Uuid
+    type            MessageType
+    content         String?              @db.Text
+    metadata        Json?                @db.JsonB
+    edited_at       DateTime?            @db.Timestamptz(6)
+    deleted_by_id   String?              @db.Uuid
+    deletion_kind   MessageDeletionKind?
+    expires_at      DateTime?            @db.Timestamptz(6)
+    created_at      DateTime             @default(now()) @db.Timestamptz(6)
+    updated_at      DateTime             @updatedAt @db.Timestamptz(6)
+    deleted_at      DateTime?            @db.Timestamptz(6)
+
+    conversation Conversation        @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+    sender       User                @relation("MessageSender", fields: [sender_id], references: [id])
+    deleted_by   User?               @relation("MessageDeletedBy", fields: [deleted_by_id], references: [id])
+    reply_to     Message?            @relation("MessageReplies", fields: [reply_to_id], references: [id])
+    replies      Message[]           @relation("MessageReplies")
+    attachments  MessageAttachment[]
+    reactions    MessageReaction[]
+    receipts     MessageReceipt[]
+    pins         PinnedMessage[]
+
+    @@index([conversation_id, created_at])
+    @@index([sender_id])
+    @@index([reply_to_id])
+    @@index([expires_at])
+    @@map("messages")
+}
+
+model GroupInvite {
+    id              String    @id @default(uuid(7)) @db.Uuid
+    conversation_id String    @db.Uuid
+    code            String    @unique @db.VarChar(64)
+    created_by      String    @db.Uuid
+    expires_at      DateTime? @db.Timestamptz(6)
+    max_uses        Int?
+    use_count       Int       @default(0)
+    revoked_at      DateTime? @db.Timestamptz(6)
+    created_at      DateTime  @default(now()) @db.Timestamptz(6)
+    updated_at      DateTime  @updatedAt @db.Timestamptz(6)
+
+    group   Group @relation(fields: [conversation_id], references: [conversation_id], onDelete: Cascade)
+    creator User  @relation("GroupInviteCreator", fields: [created_by], references: [id])
+
+    @@index([conversation_id])
+    @@index([created_by])
+    @@map("group_invites")
+}
+
+model PinnedMessage {
+    conversation_id String   @db.Uuid
+    message_id      String   @db.Uuid
+    pinned_by       String   @db.Uuid
+    pinned_at       DateTime @default(now()) @db.Timestamptz(6)
+
+    conversation Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+    message      Message      @relation(fields: [message_id], references: [id], onDelete: Cascade)
+    pinner       User         @relation("PinnedBy", fields: [pinned_by], references: [id])
+
+    @@id([conversation_id, message_id])
+    @@index([message_id])
+    @@index([pinned_by])
+    @@map("pinned_messages")
+}
+
+model MessageAttachment {
+    id            String      @id @default(uuid(7)) @db.Uuid
+    message_id    String      @db.Uuid
+    type          MessageType
+    storage_key   String      @db.Text
+    mime_type     String      @db.VarChar(100)
+    file_name     String?     @db.VarChar(255)
+    file_size     BigInt?     @db.BigInt
+    width         Int?
+    height        Int?
+    duration_ms   BigInt?     @db.BigInt
+    thumbnail_key String?     @db.Text
+    created_at    DateTime    @default(now()) @db.Timestamptz(6)
+
+    message Message @relation(fields: [message_id], references: [id], onDelete: Cascade)
+
+    @@index([message_id])
+    @@map("message_attachments")
+}
+
+model MessageReaction {
+    message_id String   @db.Uuid
+    user_id    String   @db.Uuid
+    emoji      String   @db.VarChar(20)
+    created_at DateTime @default(now()) @db.Timestamptz(6)
+
+    message Message @relation(fields: [message_id], references: [id], onDelete: Cascade)
+    user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+    @@id([message_id, user_id])
+    @@index([user_id])
+    @@map("message_reactions")
+}
+
+model MessageReceipt {
+    message_id   String    @db.Uuid
+    user_id      String    @db.Uuid
+    delivered_at DateTime? @db.Timestamptz(6)
+    read_at      DateTime? @db.Timestamptz(6)
+
+    message Message @relation(fields: [message_id], references: [id], onDelete: Cascade)
+    user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+    @@id([message_id, user_id])
+    @@index([user_id])
+    @@map("message_receipts")
+}
+
+model Call {
+    id              String     @id @default(uuid(7)) @db.Uuid
+    conversation_id String     @db.Uuid
+    initiated_by    String     @db.Uuid
+    type            CallType
+    status          CallStatus
+    started_at      DateTime?  @db.Timestamptz(6)
+    ended_at        DateTime?  @db.Timestamptz(6)
+    created_at      DateTime   @default(now()) @db.Timestamptz(6)
+
+    conversation Conversation      @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+    initiator    User              @relation("CallInitiator", fields: [initiated_by], references: [id])
+    participants CallParticipant[]
+
+    @@index([conversation_id])
+    @@index([initiated_by])
+    @@map("calls")
+}
+
+model CallParticipant {
+    call_id   String    @db.Uuid
+    user_id   String    @db.Uuid
+    joined_at DateTime? @db.Timestamptz(6)
+    left_at   DateTime? @db.Timestamptz(6)
+
+    call Call @relation(fields: [call_id], references: [id], onDelete: Cascade)
+    user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+    @@id([call_id, user_id])
+    @@index([user_id])
+    @@map("call_participants")
+}
+
+enum ConversationType {
+    private
+    group
+    community
+}
+
+enum MessageType {
+    text
+    image
+    video
+    audio
+    document
+    location
+    contact
+    system
+    call
+}
+
+enum CallType {
+    audio
+    video
+}
+
+enum CallStatus {
+    ringing
+    accepted
+    rejected
+    missed
+    ended
+}
+
+enum DeviceType {
+    web
+    android
+    ios
+    desktop
+}
+
+enum MemberRole {
+    admin
+    member
+}
+
+enum NotificationPolicy {
+    all
+    mentions_only
+    none
+}
+
+enum MessageDeletionKind {
+    sender
+    group_admin
+    moderation
+    system
+}
+
+enum UserStatus {
+    active
+    inactive
+    banned
+}
+
+enum Visibility {
+    everyone
+    contacts
+    nobody
+}
