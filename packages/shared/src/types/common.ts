@@ -1,12 +1,12 @@
 export type Id = string;
 export type ISODateString = string;
 
-export type PaginationParams = {
+export type TPaginationParams = {
   page?: number;
   limit?: number;
 };
 
-export type PaginatedResponse<T> = {
+export type TPaginatedResponse<T> = {
   data: T[];
   page: number;
   limit: number;
@@ -14,14 +14,14 @@ export type PaginatedResponse<T> = {
   totalPages: number;
 };
 
-export type ApiError = {
+export type TApiError = {
   code: string;
   message: string;
   details?: Record<string, unknown>;
 };
 
-export type ApiResponse<T> = {
+export type TApiResponse<T> = {
   success: boolean;
   data?: T;
-  error?: ApiError;
+  error?: TApiError;
 };

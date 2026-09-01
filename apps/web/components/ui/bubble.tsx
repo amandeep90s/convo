@@ -6,13 +6,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 function BubbleGroup({ className, ...props }: React.ComponentProps<'div'>) {
-  return (
-    <div
-      data-slot="bubble-group"
-      className={cn('flex min-w-0 flex-col gap-2', className)}
-      {...props}
-    />
-  );
+  return <div data-slot="bubble-group" className={cn('flex min-w-0 flex-col gap-2', className)} {...props} />;
 }
 
 const bubbleVariants = cva(
@@ -62,11 +56,7 @@ function Bubble({
   );
 }
 
-function BubbleContent({
-  className,
-  render,
-  ...props
-}: useRender.ComponentProps<'div'>) {
+function BubbleContent({ className, render, ...props }: useRender.ComponentProps<'div'>) {
   return useRender({
     defaultTagName: 'div',
     props: mergeProps<'div'>(

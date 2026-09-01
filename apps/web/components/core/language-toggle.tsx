@@ -39,11 +39,7 @@ export function LanguageToggle() {
       />
       <DropdownMenuContent align="end">
         {locales.map(({ code, label }) => (
-          <DropdownMenuItem
-            key={code}
-            disabled={locale === code}
-            onClick={() => setLocale(code)}
-          >
+          <DropdownMenuItem key={code} disabled={locale === code} onClick={() => setLocale(code)}>
             {label}
           </DropdownMenuItem>
         ))}
