@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { GroupInvitesController } from './group-invites.controller';
 
 describe('GroupInvitesController', () => {

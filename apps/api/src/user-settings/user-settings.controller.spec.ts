@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { UserSettingsController } from './user-settings.controller';
 
 describe('UserSettingsController', () => {

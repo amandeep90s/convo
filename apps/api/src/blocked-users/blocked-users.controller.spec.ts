@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { BlockedUsersController } from './blocked-users.controller';
 
 describe('BlockedUsersController', () => {

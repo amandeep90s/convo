@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { PinnedMessagesController } from './pinned-messages.controller';
 
 describe('PinnedMessagesController', () => {

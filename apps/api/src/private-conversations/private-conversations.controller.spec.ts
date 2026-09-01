@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { PrivateConversationsController } from './private-conversations.controller';
 
 describe('PrivateConversationsController', () => {

@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { MessageReceiptsController } from './message-receipts.controller';
 
 describe('MessageReceiptsController', () => {
