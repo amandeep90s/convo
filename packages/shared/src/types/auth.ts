@@ -1,30 +1,28 @@
-export type UserRole = 'admin' | 'moderator' | 'member';
-export type UserStatus = 'active' | 'inactive' | 'suspended';
-export type AuthProvider = 'email' | 'google' | 'apple';
+import type { EAuthStatus, EUserRole } from '../enums/auth.js';
 
-export type UserSummary = {
+export type TUserSummary = {
   id: string;
   email: string;
   name: string;
-  role: UserRole;
-  status: UserStatus;
+  role: EUserRole;
+  status: EAuthStatus;
   avatarUrl?: string | null;
 };
 
-export type LoginRequest = {
+export type TLoginRequest = {
   email: string;
   password: string;
 };
 
-export type RegisterRequest = {
+export type TRegisterRequest = {
   name: string;
   email: string;
   password: string;
 };
 
-export type AuthSession = {
+export type TAuthSession = {
   accessToken: string;
   refreshToken: string;
   expiresAt: string;
-  user: UserSummary;
+  user: TUserSummary;
 };

@@ -23,8 +23,7 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: 'Convo',
-  description:
-    'A simple chat application built with Next.js, TypeScript, and Tailwind CSS.',
+  description: 'A simple chat application built with Next.js, TypeScript, and Tailwind CSS.',
 };
 
 export default async function RootLayout({
@@ -35,18 +34,9 @@ export default async function RootLayout({
   const locale = await getLocale();
 
   return (
-    <html
-      lang={locale}
-      className={cn('font-sans', geist.variable)}
-      suppressHydrationWarning
-    >
+    <html lang={locale} className={cn('font-sans', geist.variable)} suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <NextIntlClientProvider>
             <QueryProvider>{children}</QueryProvider>
           </NextIntlClientProvider>
