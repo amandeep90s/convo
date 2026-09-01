@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-import { AUTH_PROVIDERS, USER_ROLES, USER_STATUSES } from '../constants/auth.js';
+import {
+  AUTH_PROVIDERS,
+  USER_ROLES,
+  USER_STATUSES,
+} from '../constants/auth.js';
 import { emailSchema, passwordSchema } from './common.js';
 
 export const userRoleSchema = z.enum(USER_ROLES);

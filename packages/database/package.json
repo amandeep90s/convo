@@ -12,7 +12,9 @@
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "check-types": "tsc --noEmit -p tsconfig.json",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:push": "prisma db push",
+    "format": "prisma format"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
