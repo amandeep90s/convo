@@ -1,157 +1,104 @@
-# Turborepo starter
+# Convo
 
-This Turborepo starter is maintained by the Turborepo core team.
+Convo is a monorepo for a real-time messaging application. It contains a Next.js web client, a NestJS API, a Prisma/PostgreSQL database package, and shared TypeScript contracts.
 
-## Using this example
+## Requirements
 
-Run the following command:
+- Node.js `20.19.0` or newer
+- pnpm `11.25.0` or newer
+- PostgreSQL
 
-```sh
-npx create-turbo@latest
+Install dependencies from the repository root:
+
+```bash
+pnpm install
 ```
 
-## What's inside?
+Set `DATABASE_URL` in `packages/database/.env` before running database commands or the API.
 
-This Turborepo includes the following packages/apps:
+## Repository Structure
 
-### Apps and Packages
-
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```text
+apps/
+  api/       NestJS backend, listening on port 3001 by default
+  web/       Next.js frontend, listening on port 3000
+packages/
+  database/  Prisma schema, migrations, and generated client
+  shared/    Shared enums, schemas, and TypeScript types
+  eslint-config/
+  typescript-config/
+docs/
+  database/  Database table documentation
 ```
 
-Without global `turbo`, use your package manager:
+## Development
 
-```sh
-cd my-turborepo
-npx turbo build
-pnpm dlx turbo build
-pnpm exec turbo build
+Start the web app and API together:
+
+```bash
+pnpm dev
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+Open the web app at [http://localhost:3000](http://localhost:3000). The API listens at [http://localhost:3001](http://localhost:3001), unless `PORT` is set.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+Run one application independently:
 
-```sh
-turbo build --filter=docs
+```bash
+pnpm --dir apps/web dev
+pnpm --dir apps/api dev
 ```
 
-Without global `turbo`:
+## Database
 
-```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+The Prisma schema is in `packages/database/prisma/schema.prisma`. Common database commands are:
+
+```bash
+pnpm --dir packages/database db:generate
+pnpm --dir packages/database db:validate
+pnpm --dir packages/database db:migrate
+pnpm --dir packages/database db:migrate:status
+pnpm --dir packages/database db:studio
 ```
 
-### Develop
+See the [database documentation](docs/database/README.md) for the table index and schema documentation.
 
-To develop all apps and packages, run the following command:
+## Quality Checks
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+Run the checks for the whole workspace:
 
-```sh
-cd my-turborepo
-turbo dev
+```bash
+pnpm lint
+pnpm check-types
+pnpm format:check
 ```
 
-Without global `turbo`, use your package manager:
+Apply lint fixes or formatting when needed:
 
-```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
+```bash
+pnpm lint:fix
+pnpm format
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+## Tests
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+The API and web applications use Playwright for end-to-end tests:
 
-```sh
-turbo dev --filter=web
+```bash
+pnpm --dir apps/api test:e2e
+pnpm --dir apps/web test:e2e
 ```
 
-Without global `turbo`:
+## Build
 
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
+Build all applications and packages:
+
+```bash
+pnpm build
 ```
 
-### Remote Caching
+Build or check a specific workspace package with a filter:
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
+```bash
+pnpm turbo build --filter=web
+pnpm turbo check-types --filter=api
 ```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
