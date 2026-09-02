@@ -8,11 +8,13 @@
       "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"]
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": ["^lint"],
+      "env": ["CI", "PORT"]
     },
     "lint:fix": {
       "cache": false,
-      "dependsOn": ["^lint:fix"]
+      "dependsOn": ["^lint:fix"],
+      "env": ["CI", "PORT"]
     },
     "format": {
       "dependsOn": ["^format"]

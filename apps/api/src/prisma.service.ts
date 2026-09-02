@@ -3,7 +3,7 @@ import { db } from '@repo/db';
 
 @Injectable()
 export class PrismaService implements OnModuleInit, OnModuleDestroy {
-  constructor(private readonly prisma = db) {}
+  private readonly prisma = db;
 
   async onModuleInit() {
     await this.prisma.$connect();
