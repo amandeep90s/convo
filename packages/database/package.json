@@ -1,7 +1,7 @@
 {
   "name": "@repo/db",
   "version": "0.0.0",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "db:generate": "prisma generate",
@@ -19,13 +19,14 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
-    "dotenv": "^16.0.0",
-    "pg": "^8.0.0"
+    "dotenv": "^17.4.2",
+    "pg": "^8.23.0"
   },
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/src/index.js"
+      "import": "./dist/src/index.js",
+      "require": "./dist/src/index.js"
     }
   },
   "devDependencies": {

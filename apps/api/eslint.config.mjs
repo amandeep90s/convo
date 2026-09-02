@@ -4,7 +4,11 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['eslint.config.mjs'],
+    ignores: [
+      'eslint.config.mjs',
+      'playwright.config.d.ts',
+      'playwright.config.js',
+    ],
   },
   ...nodeConfig,
   {
