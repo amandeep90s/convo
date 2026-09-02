@@ -1,4 +1,3 @@
-import js from '@eslint/js';
 import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
@@ -11,7 +10,6 @@ import { config as baseConfig } from './base.js';
  * */
 export const nodeConfig = [
   ...baseConfig,
-  js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   eslintPluginPrettierRecommended,
   {

@@ -1,7 +1,5 @@
-import js from '@eslint/js';
+import { fixupPluginRules } from '@eslint/compat';
 import { globalIgnores } from 'eslint/config';
-import eslintConfigPrettier from 'eslint-config-prettier';
-import tseslint from 'typescript-eslint';
 import pluginReactHooks from 'eslint-plugin-react-hooks';
 import pluginReact from 'eslint-plugin-react';
 import globals from 'globals';
@@ -15,9 +13,6 @@ import { config as baseConfig } from './base.js';
  * */
 export const nextJsConfig = [
   ...baseConfig,
-  js.configs.recommended,
-  eslintConfigPrettier,
-  ...tseslint.configs.recommended,
   globalIgnores([
     // Default ignores of eslint-config-next:
     '.next/**',
@@ -27,6 +22,9 @@ export const nextJsConfig = [
   ]),
   {
     ...pluginReact.configs.flat.recommended,
+    plugins: {
+      react: fixupPluginRules(pluginReact),
+    },
     languageOptions: {
       ...pluginReact.configs.flat.recommended.languageOptions,
       globals: {
