@@ -1,1 +1,2 @@
-export type EVisibility = 'everyone' | 'contacts' | 'nobody';
+export const VISIBILITIES = ['everyone', 'contacts', 'nobody'] as const;
+export type EVisibility = (typeof VISIBILITIES)[number];

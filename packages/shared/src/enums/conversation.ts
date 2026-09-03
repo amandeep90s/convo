@@ -1,3 +1,4 @@
 export type EConversationKind = 'direct' | 'group';
 
-export type EConversationType = 'private' | 'group' | 'community';
+export const CONVERSATION_TYPES = ['private', 'group', 'community'] as const;
+export type EConversationType = (typeof CONVERSATION_TYPES)[number];
