@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { USER_ROLES, AUTH_PROVIDERS, USER_STATUSES } from '../constants/auth.js';
+import { AUTH_PROVIDERS, USER_ROLES, USER_STATUSES } from '../constants/auth.js';
 import { emailSchema, passwordSchema } from './common.js';
 
 export const userRoleSchema = z.enum(USER_ROLES);
@@ -34,6 +34,6 @@ export const userSummarySchema = z.object({
 export const authSessionSchema = z.object({
   accessToken: z.string().min(1),
   refreshToken: z.string().min(1),
-  expiresAt: z.string().datetime({ offset: true }).or(z.string()),
+  expiresAt: z.iso.datetime({ offset: true }).or(z.string()),
   user: userSummarySchema,
 });
