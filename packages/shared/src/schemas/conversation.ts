@@ -30,3 +30,9 @@ export const updateConversationSchema = z.object({
   avatar_url: z.url().optional(),
   disappearing_message_ttl_seconds: z.number().int().positive().nullable().optional(),
 });
+
+// Types
+export type Conversation = z.infer<typeof conversationSchema>;
+export type ConversationType = z.infer<typeof conversationTypeSchema>;
+export type CreateConversationDto = z.infer<typeof createConversationSchema>;
+export type UpdateConversationDto = z.infer<typeof updateConversationSchema>;

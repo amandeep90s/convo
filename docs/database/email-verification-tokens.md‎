@@ -1,0 +1,17 @@
+# `email_verification_tokens`
+
+## Purpose
+
+Stores single-use tokens issued to verify a user's email address after registration.
+
+## Features
+
+- Stores a token hash rather than the raw token sent by email.
+- `expires_at` bounds how long a token remains valid.
+- `consumed_at` marks a token as used, preventing replay.
+- Indexed by `user_id`.
+
+## Relations
+
+- Belongs to one `users` row.
+- Deleting the parent user cascades to its tokens.

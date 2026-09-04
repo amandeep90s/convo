@@ -16,11 +16,18 @@ export const loginSchema = z.object({
   password: passwordSchema,
 });
 
-export const registerSchema = z.object({
-  name: z.string().trim().min(2, 'Name must be at least 2 characters long'),
-  email: emailSchema,
-  password: passwordSchema,
-});
+export const registerSchema = z
+  .object({
+    name: z.string().trim().min(2, 'Name must be at least 2 characters long'),
+    username: z.string().trim().min(2, 'Username must be at least 2 characters long'),
+    email: emailSchema,
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, { message: 'Confirm Password is required' }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
 
 export const userSummarySchema = z.object({
   id: z.string().min(1),
@@ -37,3 +44,19 @@ export const authSessionSchema = z.object({
   expiresAt: z.iso.datetime({ offset: true }).or(z.string()),
   user: userSummarySchema,
 });
+
+export const verifyEmailSchema = z.object({
+  token: z.string().min(1, 'Token is required'),
+});
+
+export const resendVerificationSchema = z.object({
+  email: emailSchema,
+});
+
+// Types
+export type LoginDto = z.infer<typeof loginSchema>;
+export type RegisterDto = z.infer<typeof registerSchema>;
+export type UserSummary = z.infer<typeof userSummarySchema>;
+export type AuthSession = z.infer<typeof authSessionSchema>;
+export type VerifyEmailDto = z.infer<typeof verifyEmailSchema>;
+export type ResendVerificationDto = z.infer<typeof resendVerificationSchema>;

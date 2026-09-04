@@ -15,3 +15,8 @@ export const createContactSchema = z.object({
 export const updateContactSchema = z.object({
   nickname: z.string().max(100).optional(),
 });
+
+// Types
+export type Contact = z.infer<typeof contactSchema>;
+export type CreateContactDto = z.infer<typeof createContactSchema>;
+export type UpdateContactDto = z.infer<typeof updateContactSchema>;

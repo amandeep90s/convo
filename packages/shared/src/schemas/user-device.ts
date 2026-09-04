@@ -30,3 +30,9 @@ export const updateUserDeviceSchema = z.object({
   last_seen_at: z.coerce.date().optional(),
   revoked_at: z.coerce.date().optional(),
 });
+
+// Types
+export type DeviceType = z.infer<typeof deviceTypeSchema>;
+export type UserDevice = z.infer<typeof userDeviceSchema>;
+export type CreateUserDeviceDto = z.infer<typeof createUserDeviceSchema>;
+export type UpdateUserDeviceDto = z.infer<typeof updateUserDeviceSchema>;

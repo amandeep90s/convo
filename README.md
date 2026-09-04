@@ -7,6 +7,7 @@ Convo is a monorepo for a real-time messaging application. It contains a Next.js
 - Node.js `20.19.0` or newer
 - pnpm `11.25.0` or newer
 - PostgreSQL
+- Docker Desktop (optional, for local PostgreSQL and Redis)
 
 Install dependencies from the repository root:
 
@@ -15,6 +16,24 @@ pnpm install
 ```
 
 Set `DATABASE_URL` in `packages/database/.env` before running database commands or the API.
+
+To run PostgreSQL and Redis without using the default host ports, start the Docker services:
+
+```bash
+docker compose up -d
+```
+
+The services use host ports `55432` for PostgreSQL and `56379` for Redis. Configure the API and Prisma package with:
+
+```dotenv
+DATABASE_URL=postgresql://postgres:Aman@1234@localhost:55432/convo_app?schema=public
+REDIS_HOST=localhost
+REDIS_PORT=56379
+```
+
+Stop the services with `docker compose down`. Add `-v` only when you also want to remove the persisted database and Redis data.
+
+See [docs/docker.md](docs/docker.md) for the full list of Docker commands, including how to view logs and connect to the running PostgreSQL and Redis instances.
 
 ## Repository Structure
 

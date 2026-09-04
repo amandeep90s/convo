@@ -31,3 +31,9 @@ export const createUserSchema = z.object({
 });
 
 export const updateUserSchema = createUserSchema.omit({ email: true, password: true }).partial();
+
+// Types
+export type UserAccountStatus = z.infer<typeof userAccountStatusSchema>;
+export type User = z.infer<typeof userSchema>;
+export type CreateUserDto = z.infer<typeof createUserSchema>;
+export type UpdateUserDto = z.infer<typeof updateUserSchema>;

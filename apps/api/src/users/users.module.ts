@@ -1,11 +1,29 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
-import { UsersProvider } from './providers/users.provider';
-import { UsersService } from './providers/users.service';
-import { UsersController } from './users.controller';
+import { AuthModule } from '@/auth/auth.module';
+import { MailModule } from '@/mail/mail.module';
+import { CreateUserProvider } from '@/users/providers/create-user.provider';
+import { FindOneUserByEmailProvider } from '@/users/providers/find-one-user-by-email.provider';
+import { FindOneUserByUsernameProvider } from '@/users/providers/find-one-user-by-username.provider';
+import { UsersProvider } from '@/users/providers/users.provider';
+import { UsersService } from '@/users/providers/users.service';
+import { UsersController } from '@/users/users.controller';
 
 @Module({
   controllers: [UsersController],
-  providers: [UsersService, UsersProvider],
+  providers: [
+    UsersService,
+    UsersProvider,
+    FindOneUserByEmailProvider,
+    FindOneUserByUsernameProvider,
+    CreateUserProvider,
+  ],
+  exports: [
+    UsersService,
+    FindOneUserByEmailProvider,
+    CreateUserProvider,
+    FindOneUserByUsernameProvider,
+  ],
+  imports: [forwardRef(() => AuthModule), MailModule],
 })
 export class UsersModule {}

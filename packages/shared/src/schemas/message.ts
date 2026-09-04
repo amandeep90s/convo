@@ -108,3 +108,20 @@ export const pinnedMessageSchema = z.object({
 export const createPinnedMessageSchema = z.object({
   message_id: z.uuid(),
 });
+
+// Types
+export type Message = z.infer<typeof messageSchema>;
+export type MessageType = z.infer<typeof messageTypeSchema>;
+export type MessageDeletionKind = z.infer<typeof messageDeletionKindSchema>;
+export type CreateMessageDto = z.infer<typeof createMessageSchema>;
+export type UpdateMessageDto = z.infer<typeof updateMessageSchema>;
+export type DeleteMessageDto = z.infer<typeof deleteMessageSchema>;
+export type MessageAttachment = z.infer<typeof messageAttachmentSchema>;
+export type CreateMessageAttachmentDto = z.infer<typeof createMessageAttachmentSchema>;
+export type MessageReaction = z.infer<typeof messageReactionSchema>;
+export type CreateMessageReactionDto = z.infer<typeof createMessageReactionSchema>;
+export type MessageReceipt = z.infer<typeof messageReceiptSchema>;
+export type CreateMessageReceiptDto = z.infer<typeof createMessageReceiptSchema>;
+export type UpdateMessageReceiptDto = z.infer<typeof updateMessageReceiptSchema>;
+export type PinnedMessage = z.infer<typeof pinnedMessageSchema>;
+export type CreatePinnedMessageDto = z.infer<typeof createPinnedMessageSchema>;

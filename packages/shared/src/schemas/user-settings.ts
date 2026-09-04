@@ -28,3 +28,9 @@ export const createUserSettingsSchema = z.object({
 });
 
 export const updateUserSettingsSchema = createUserSettingsSchema;
+
+// Types
+export type Visibility = z.infer<typeof visibilitySchema>;
+export type UserSettings = z.infer<typeof userSettingsSchema>;
+export type CreateUserSettingsDto = z.infer<typeof createUserSettingsSchema>;
+export type UpdateUserSettingsDto = z.infer<typeof updateUserSettingsSchema>;

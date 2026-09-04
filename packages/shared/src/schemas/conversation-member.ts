@@ -31,3 +31,8 @@ export const updateConversationMemberSchema = z.object({
   archived_at: z.coerce.date().nullable().optional(),
   last_read_message_id: z.uuid().optional(),
 });
+
+// Types
+export type ConversationMember = z.infer<typeof conversationMemberSchema>;
+export type CreateConversationMemberDto = z.infer<typeof createConversationMemberSchema>;
+export type UpdateConversationMemberDto = z.infer<typeof updateConversationMemberSchema>;
