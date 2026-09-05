@@ -5,6 +5,7 @@ export * from './common.js';
 export * from './contact.js';
 export * from './conversation-member.js';
 export * from './conversation.js';
+export * from './environment.js';
 export * from './group-invite.js';
 export * from './group.js';
 export * from './message.js';

@@ -16,8 +16,18 @@ export type TLoginRequest = {
 
 export type TRegisterRequest = {
   name: string;
+  username: string;
   email: string;
   password: string;
+  confirmPassword: string;
+};
+
+export type TRegisterResponse = {
+  id: string;
+  name: string;
+  username: string;
+  email: string;
+  created_at: Date;
 };
 
 export type TAuthSession = {
@@ -25,4 +35,12 @@ export type TAuthSession = {
   refreshToken: string;
   expiresAt: string;
   user: TUserSummary;
+};
+
+export type TVerifyEmailRequest = {
+  token: string;
+};
+
+export type TResendVerificationRequest = {
+  email: string;
 };

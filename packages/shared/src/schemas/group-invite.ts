@@ -23,3 +23,8 @@ export const updateGroupInviteSchema = z.object({
   max_uses: z.number().int().positive().nullable().optional(),
   revoked_at: z.coerce.date().optional(),
 });
+
+// Types
+export type GroupInvite = z.infer<typeof groupInviteSchema>;
+export type CreateGroupInviteDto = z.infer<typeof createGroupInviteSchema>;
+export type UpdateGroupInviteDto = z.infer<typeof updateGroupInviteSchema>;

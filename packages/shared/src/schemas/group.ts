@@ -17,3 +17,8 @@ export const createGroupSchema = z.object({
 export const updateGroupSchema = z.object({
   description: z.string().optional(),
 });
+
+// Types
+export type Group = z.infer<typeof groupSchema>;
+export type CreateGroupDto = z.infer<typeof createGroupSchema>;
+export type UpdateGroupDto = z.infer<typeof updateGroupSchema>;

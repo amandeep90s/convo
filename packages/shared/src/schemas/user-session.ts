@@ -24,3 +24,8 @@ export const updateUserSessionSchema = z.object({
   revoked_at: z.coerce.date().optional(),
   expires_at: z.coerce.date().optional(),
 });
+
+// Types
+export type UserSession = z.infer<typeof userSessionSchema>;
+export type CreateUserSessionDto = z.infer<typeof createUserSessionSchema>;
+export type UpdateUserSessionDto = z.infer<typeof updateUserSessionSchema>;

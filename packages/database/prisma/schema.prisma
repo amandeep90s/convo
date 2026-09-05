@@ -42,6 +42,7 @@ model User {
     deleted_messages            Message[]             @relation("MessageDeletedBy")
     created_group_invites       GroupInvite[]         @relation("GroupInviteCreator")
     pinned_messages             PinnedMessage[]       @relation("PinnedBy")
+    email_verification_tokens   EmailVerification[]
 
     @@map("users")
 }
@@ -98,6 +99,19 @@ model UserSession {
     @@index([user_id])
     @@index([device_id])
     @@map("user_sessions")
+}
+
+model EmailVerification {
+    id         String   @id @default(uuid(7)) @db.Uuid
+    user_id    String   @db.Uuid
+    token_hash String   @unique @db.Text
+    expires_at DateTime @db.Timestamptz(6)
+    created_at DateTime @default(now()) @db.Timestamptz(6)
+
+    user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+    @@index([user_id])
+    @@map("email_verifications")
 }
 
 model Contact {

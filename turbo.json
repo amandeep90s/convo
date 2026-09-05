@@ -4,6 +4,26 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "env": [
+        "API_VERSION",
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "JWT_ACCESS_TOKEN_TTL",
+        "JWT_REFRESH_TOKEN_TTL",
+        "JWT_SECRET",
+        "JWT_TOKEN_AUDIENCE",
+        "JWT_TOKEN_ISSUER",
+        "NODE_ENV",
+        "PORT",
+        "RESEND_API_KEY",
+        "MAIL_FROM",
+        "WEB_URL",
+        "EMAIL_VERIFICATION_TOKEN_TTL",
+        "THROTTLE_LIMIT",
+        "THROTTLE_TTL",
+        "REDIS_HOST",
+        "REDIS_PORT"
+      ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"]
     },
@@ -24,6 +44,10 @@
     },
     "check-types": {
       "dependsOn": ["^check-types"]
+    },
+    "test:e2e": {
+      "cache": false,
+      "env": ["CI", "E2E_ALL_BROWSERS", "PORT"]
     },
     "dev": {
       "cache": false,

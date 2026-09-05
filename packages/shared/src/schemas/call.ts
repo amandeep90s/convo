@@ -42,3 +42,11 @@ export const updateCallParticipantSchema = z.object({
   joined_at: z.coerce.date().optional(),
   left_at: z.coerce.date().optional(),
 });
+
+// Types
+export type Call = z.infer<typeof callSchema>;
+export type CreateCallDto = z.infer<typeof createCallSchema>;
+export type UpdateCallDto = z.infer<typeof updateCallSchema>;
+export type CallParticipant = z.infer<typeof callParticipantSchema>;
+export type CreateCallParticipantDto = z.infer<typeof createCallParticipantSchema>;
+export type UpdateCallParticipantDto = z.infer<typeof updateCallParticipantSchema>;

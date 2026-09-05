@@ -9,3 +9,7 @@ export const blockedUserSchema = z.object({
 export const createBlockedUserSchema = z.object({
   blocked_user_id: z.uuid(),
 });
+
+// Types
+export type BlockedUser = z.infer<typeof blockedUserSchema>;
+export type CreateBlockedUserDto = z.infer<typeof createBlockedUserSchema>;
