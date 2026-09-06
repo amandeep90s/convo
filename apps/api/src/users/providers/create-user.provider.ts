@@ -1,4 +1,4 @@
-import { Inject, Injectable, RequestTimeoutException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import type { RegisterDto, TRegisterResponse } from '@repo/shared';
 
 import { HashingProvider } from '@/auth/providers/hashing.provider';
@@ -14,17 +14,17 @@ export class CreateUserProvider {
     private readonly hashingProvider: HashingProvider,
 
     /**
-     * Injecting PrismaService to handle database operations
+     * Injecting PrismaService for database access
      */
     private readonly prisma: PrismaService,
   ) {}
 
   public async create(createUserDto: RegisterDto): Promise<TRegisterResponse> {
-    try {
-      const hashedPassword = await this.hashingProvider.hashPassword(
-        createUserDto.password,
-      );
+    const hashedPassword = await this.hashingProvider.hashPassword(
+      createUserDto.password,
+    );
 
+    try {
       return await this.prisma.user.create({
         data: {
           name: createUserDto.name,
@@ -41,9 +41,21 @@ export class CreateUserProvider {
         },
       });
     } catch (error) {
-      throw new RequestTimeoutException(error, {
-        description: 'Failed to create user',
-      });
+      if (isUniqueConstraintViolation(error)) {
+        throw new ConflictException(
+          'A user with this email or username already exists',
+        );
+      }
+      throw error;
     }
   }
+}
+
+function isUniqueConstraintViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: string }).code === 'P2002'
+  );
 }
