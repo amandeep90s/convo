@@ -7,11 +7,11 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { db } from '@repo/db';
 import type { RegisterDto, TRegisterResponse } from '@repo/shared';
 
 import { HashingProvider } from '@/auth/providers/hashing.provider';
 import { MailService } from '@/mail/mail.service';
+import { PrismaService } from '@/prisma.service';
 import { UsersService } from '@/users/providers/users.service';
 
 @Injectable()
@@ -37,6 +37,11 @@ export class RegisterUserProvider {
      * Injecting HashingProvider to handle password and token hashing
      */
     private readonly hashingProvider: HashingProvider,
+
+    /**
+     * Injecting PrismaService to handle database operations
+     */
+    private readonly prisma: PrismaService,
   ) {}
 
   public async register(body: RegisterDto) {
@@ -71,7 +76,7 @@ export class RegisterUserProvider {
     );
     const expiresAt = new Date(Date.now() + tokenExpiresIn * 60_000);
 
-    await db.emailVerification.create({
+    await this.prisma.emailVerification.create({
       data: {
         user_id: user.id,
         token_hash: this.hashingProvider.hashToken(token),

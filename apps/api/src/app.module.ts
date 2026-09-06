@@ -29,7 +29,7 @@ import { MessageReactionsModule } from '@/message-reactions/message-reactions.mo
 import { MessageReceiptsModule } from '@/message-receipts/message-receipts.module';
 import { MessagesModule } from '@/messages/messages.module';
 import { PinnedMessagesModule } from '@/pinned-messages/pinned-messages.module';
-import { PrismaService } from '@/prisma.service';
+import { PrismaModule } from '@/prisma.module';
 import { PrivateConversationsModule } from '@/private-conversations/private-conversations.module';
 import { UserDevicesModule } from '@/user-devices/user-devices.module';
 import { UserSessionsModule } from '@/user-sessions/user-sessions.module';
@@ -47,6 +47,7 @@ const ENV = process.env.NODE_ENV;
       validationSchema: environmentSchema,
     }),
     AppLoggerModule,
+    PrismaModule,
     HealthModule,
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
@@ -93,7 +94,6 @@ const ENV = process.env.NODE_ENV;
   controllers: [AppController],
   providers: [
     AppService,
-    PrismaService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
