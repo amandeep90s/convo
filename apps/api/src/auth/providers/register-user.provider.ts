@@ -10,10 +10,9 @@ import { ConfigService } from '@nestjs/config';
 import { db } from '@repo/db';
 import type { RegisterDto, TRegisterResponse } from '@repo/shared';
 
+import { HashingProvider } from '@/auth/providers/hashing.provider';
 import { MailService } from '@/mail/mail.service';
 import { UsersService } from '@/users/providers/users.service';
-
-import { HashingProvider } from './hashing.provider';
 
 @Injectable()
 export class RegisterUserProvider {

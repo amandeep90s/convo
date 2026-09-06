@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { Injectable } from '@nestjs/common';
 import Handlebars from 'handlebars';
 
-import type { VerificationEmailTemplateOptions } from './types/mail.types';
+import type { VerificationEmailTemplateOptions } from '@/mail/types/mail.types';
 
 @Injectable()
 export class MailTemplateService {

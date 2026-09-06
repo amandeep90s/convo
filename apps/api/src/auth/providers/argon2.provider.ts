@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import * as argon2 from 'argon2';
 
-import { HashingProvider } from './hashing.provider';
+import { HashingProvider } from '@/auth/providers/hashing.provider';
 
 @Injectable()
 export class Argon2Provider implements HashingProvider {
