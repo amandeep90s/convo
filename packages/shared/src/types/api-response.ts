@@ -15,6 +15,8 @@ export type IApiErrorResponse = {
   errors?: Record<string, string>;
   timestamp: string;
   path: string;
+  /** Mirrors the X-Request-Id header so error reports stay traceable. */
+  requestId: string;
 };
 
 export type IApiResponse<T> = IApiSuccessResponse<T> | IApiErrorResponse;

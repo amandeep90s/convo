@@ -9,6 +9,8 @@ import type { Request, Response } from 'express';
 import { ZodValidationException } from 'nestjs-zod';
 import { ZodError } from 'zod';
 
+import { getRequestId } from '@/common/utils/request-id.util';
+
 @Catch(ZodValidationException)
 export class ZodValidationExceptionFilter implements ExceptionFilter {
   catch(exception: ZodValidationException, host: ArgumentsHost) {
@@ -40,6 +42,7 @@ export class ZodValidationExceptionFilter implements ExceptionFilter {
       errors: formattedErrors,
       timestamp: new Date().toISOString(),
       path: request.url,
+      requestId: getRequestId(request),
     };
 
     response.status(statusCode).json(body);

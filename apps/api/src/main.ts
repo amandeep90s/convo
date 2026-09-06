@@ -1,36 +1,33 @@
 import { ConfigService } from '@nestjs/config';
-import { NestFactory, Reflector } from '@nestjs/core';
+import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
+import { Logger } from 'nestjs-pino';
 import { ZodValidationPipe } from 'nestjs-zod';
 
 import { AppModule } from '@/app.module';
-import { AllExceptionsFilter } from '@/common/filters/all-exceptions.filter';
-import { ZodValidationExceptionFilter } from '@/common/filters/zod-validation-exception.filter';
-import { TransformResponseInterceptor } from '@/common/interceptors/transform-response.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const configService = app.get(ConfigService);
+
+  app.useLogger(app.get(Logger));
+  app.enableShutdownHooks();
 
   app.setGlobalPrefix('api/v1');
 
   app.use(helmet());
 
   app.enableCors({
-    origin: configService.getOrThrow<string>('app.webUrl'),
+    origin: configService.getOrThrow<string[]>('app.corsOrigins'),
     credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+    exposedHeaders: ['X-Request-Id'],
+    maxAge: 86_400,
   });
 
   app.useGlobalPipes(new ZodValidationPipe());
-  // Later filters take precedence, so the specific Zod filter is registered last.
-  app.useGlobalFilters(
-    new AllExceptionsFilter(),
-    new ZodValidationExceptionFilter(),
-  );
-  app.useGlobalInterceptors(
-    new TransformResponseInterceptor(app.get(Reflector)),
-  );
 
-  await app.listen(process.env.PORT ?? 3001);
+  await app.listen(configService.getOrThrow<number>('app.port'));
 }
 void bootstrap();
