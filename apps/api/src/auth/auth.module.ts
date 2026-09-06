@@ -6,6 +6,8 @@ import { AuthProvider } from '@/auth/providers/auth.provider';
 import { AuthService } from '@/auth/providers/auth.service';
 import { HashingProvider } from '@/auth/providers/hashing.provider';
 import { RegisterUserProvider } from '@/auth/providers/register-user.provider';
+import { SendVerificationEmailProvider } from '@/auth/providers/send-verification-email.provider';
+import { VerificationTokenProvider } from '@/auth/providers/verification-token.provider';
 import { UsersModule } from '@/users/users.module';
 
 @Module({
@@ -18,6 +20,8 @@ import { UsersModule } from '@/users/users.module';
       provide: HashingProvider,
       useClass: Argon2Provider,
     },
+    VerificationTokenProvider,
+    SendVerificationEmailProvider,
   ],
   exports: [AuthService, HashingProvider],
   imports: [forwardRef(() => UsersModule)],
