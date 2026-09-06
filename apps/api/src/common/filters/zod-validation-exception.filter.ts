@@ -4,7 +4,8 @@ import {
   ExceptionFilter,
   HttpStatus,
 } from '@nestjs/common';
-import { Response } from 'express';
+import type { IApiErrorResponse } from '@repo/shared';
+import type { Request, Response } from 'express';
 import { ZodValidationException } from 'nestjs-zod';
 import { ZodError } from 'zod';
 
@@ -12,8 +13,9 @@ import { ZodError } from 'zod';
 export class ZodValidationExceptionFilter implements ExceptionFilter {
   catch(exception: ZodValidationException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
+    const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
-    const status = HttpStatus.BAD_REQUEST;
+    const statusCode = HttpStatus.BAD_REQUEST;
     const zodError = exception.getZodError();
 
     let formattedErrors: Record<string, string> = {};
@@ -31,10 +33,15 @@ export class ZodValidationExceptionFilter implements ExceptionFilter {
       );
     }
 
-    response.status(status).json({
-      statusCode: status,
+    const body: IApiErrorResponse = {
+      success: false,
+      statusCode,
       message: 'Validation failed',
       errors: formattedErrors,
-    });
+      timestamp: new Date().toISOString(),
+      path: request.url,
+    };
+
+    response.status(statusCode).json(body);
   }
 }
