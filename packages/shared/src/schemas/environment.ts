@@ -14,7 +14,7 @@ export const environmentSchema = z.object({
   JWT_TOKEN_ISSUER: z.string(),
   JWT_ACCESS_TOKEN_TTL: z.string(),
   JWT_REFRESH_TOKEN_TTL: z.string(),
-  EMAIL_VERIFICATION_TOKEN_TTL: z.string(),
+  EMAIL_VERIFICATION_TOKEN_TTL: z.coerce.number().int().positive(),
   GOOGLE_CLIENT_ID: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
   REDIS_HOST: z.string(),

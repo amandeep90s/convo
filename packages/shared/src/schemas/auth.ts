@@ -19,7 +19,11 @@ export const loginSchema = z.object({
 export const registerSchema = z
   .object({
     name: z.string().trim().min(2, 'Name must be at least 2 characters long'),
-    username: z.string().trim().min(2, 'Username must be at least 2 characters long'),
+    username: z
+      .string()
+      .trim()
+      .min(2, 'Username must be at least 2 characters long')
+      .transform((username) => username.toLowerCase()),
     email: emailSchema,
     password: passwordSchema,
     confirmPassword: z.string().min(1, { message: 'Confirm Password is required' }),

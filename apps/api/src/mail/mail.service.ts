@@ -62,9 +62,7 @@ export class MailService {
       html: this.mailTemplateService.renderVerificationEmail({
         recipientName: job.recipientName,
         verificationUrl: verificationUrl.toString(),
-        expiresIn: this.configService.getOrThrow<string>(
-          'mail.verificationTokenTtl',
-        ),
+        expiresIn: `${this.configService.getOrThrow<number>('mail.verificationTokenTtl')} minutes`,
       }),
     };
   }
