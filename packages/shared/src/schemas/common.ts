@@ -7,7 +7,10 @@ export const paginationSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
-export const emailSchema = z.email('Please enter a valid email address').trim();
+export const emailSchema = z
+  .email('Please enter a valid email address')
+  .trim()
+  .transform((email) => email.toLowerCase());
 
 export const passwordSchema = z
   .string({ error: (issue) => (issue.input === undefined ? 'Password is required' : undefined) })

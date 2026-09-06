@@ -5,13 +5,13 @@ import type { Queue } from 'bullmq';
 import type { CreateBatchOptions, CreateEmailOptions } from 'nestjs-resend';
 import { ResendService } from 'nestjs-resend';
 
-import { MailTemplateService } from './mail-template.service';
+import { MailTemplateService } from '@/mail/mail-template.service';
 import {
   MAIL_JOB_NAMES,
   MAIL_QUEUE_NAME,
   VERIFICATION_EMAIL_JOB_OPTIONS,
-} from './queues/mail.queue';
-import type { VerificationEmailJob } from './types/mail.types';
+} from '@/mail/queues/mail.queue';
+import type { VerificationEmailJob } from '@/mail/types/mail.types';
 
 @Injectable()
 export class MailService {
@@ -62,9 +62,7 @@ export class MailService {
       html: this.mailTemplateService.renderVerificationEmail({
         recipientName: job.recipientName,
         verificationUrl: verificationUrl.toString(),
-        expiresIn: this.configService.getOrThrow<string>(
-          'mail.verificationTokenTtl',
-        ),
+        expiresIn: `${this.configService.getOrThrow<number>('mail.verificationTokenTtl')} minutes`,
       }),
     };
   }

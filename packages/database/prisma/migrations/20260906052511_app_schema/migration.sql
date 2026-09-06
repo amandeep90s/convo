@@ -39,6 +39,7 @@ CREATE TABLE "users" (
     "avatar_url" TEXT,
     "password_hash" TEXT,
     "status" "UserStatus" NOT NULL DEFAULT 'active',
+    "email_verified_at" TIMESTAMPTZ(6),
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
     "deleted_at" TIMESTAMPTZ(6),
@@ -90,6 +91,17 @@ CREATE TABLE "user_sessions" (
     "revoked_at" TIMESTAMPTZ(6),
 
     CONSTRAINT "user_sessions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "email_verifications" (
+    "id" UUID NOT NULL,
+    "user_id" UUID NOT NULL,
+    "token_hash" TEXT NOT NULL,
+    "expires_at" TIMESTAMPTZ(6) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "email_verifications_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -292,6 +304,12 @@ CREATE INDEX "user_sessions_user_id_idx" ON "user_sessions"("user_id");
 CREATE INDEX "user_sessions_device_id_idx" ON "user_sessions"("device_id");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "email_verifications_token_hash_key" ON "email_verifications"("token_hash");
+
+-- CreateIndex
+CREATE INDEX "email_verifications_user_id_idx" ON "email_verifications"("user_id");
+
+-- CreateIndex
 CREATE INDEX "contacts_contact_user_id_idx" ON "contacts"("contact_user_id");
 
 -- CreateIndex
@@ -374,6 +392,9 @@ ALTER TABLE "user_sessions" ADD CONSTRAINT "user_sessions_user_id_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "user_sessions" ADD CONSTRAINT "user_sessions_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "user_devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "email_verifications" ADD CONSTRAINT "email_verifications_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "contacts" ADD CONSTRAINT "contacts_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

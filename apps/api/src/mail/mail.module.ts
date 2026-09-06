@@ -3,10 +3,10 @@ import { Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ResendModule } from 'nestjs-resend';
 
-import { MailProcessor } from './mail.processor';
-import { MailService } from './mail.service';
-import { MailTemplateService } from './mail-template.service';
-import { MAIL_QUEUE_NAME } from './queues/mail.queue';
+import { MailProcessor } from '@/mail/mail.processor';
+import { MailService } from '@/mail/mail.service';
+import { MailTemplateService } from '@/mail/mail-template.service';
+import { MAIL_QUEUE_NAME } from '@/mail/queues/mail.queue';
 
 @Global()
 @Module({

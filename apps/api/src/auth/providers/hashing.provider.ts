@@ -8,4 +8,6 @@ export abstract class HashingProvider {
     data: string | Buffer,
     encrypted: string,
   ): Promise<boolean>;
+
+  abstract hashToken(data: string): string;
 }

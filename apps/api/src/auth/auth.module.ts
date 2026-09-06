@@ -1,13 +1,12 @@
 import { forwardRef, Module } from '@nestjs/common';
 
+import { AuthController } from '@/auth/auth.controller';
+import { Argon2Provider } from '@/auth/providers/argon2.provider';
+import { AuthProvider } from '@/auth/providers/auth.provider';
+import { AuthService } from '@/auth/providers/auth.service';
+import { HashingProvider } from '@/auth/providers/hashing.provider';
+import { RegisterUserProvider } from '@/auth/providers/register-user.provider';
 import { UsersModule } from '@/users/users.module';
-
-import { AuthController } from './auth.controller';
-import { Argon2Provider } from './providers/argon2.provider';
-import { AuthProvider } from './providers/auth.provider';
-import { AuthService } from './providers/auth.service';
-import { HashingProvider } from './providers/hashing.provider';
-import { RegisterUserProvider } from './providers/register-user.provider';
 
 @Module({
   controllers: [AuthController],

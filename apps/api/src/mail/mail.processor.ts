@@ -1,9 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import type { Job } from 'bullmq';
 
-import { MailService } from './mail.service';
-import { MAIL_JOB_NAMES, MAIL_QUEUE_NAME } from './queues/mail.queue';
-import type { MailJob } from './types/mail.types';
+import { MailService } from '@/mail/mail.service';
+import { MAIL_JOB_NAMES, MAIL_QUEUE_NAME } from '@/mail/queues/mail.queue';
+import type { MailJob } from '@/mail/types/mail.types';
 
 @Processor(MAIL_QUEUE_NAME)
 export class MailProcessor extends WorkerHost {
