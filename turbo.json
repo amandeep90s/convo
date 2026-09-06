@@ -6,6 +6,7 @@
       "dependsOn": ["^build"],
       "env": [
         "API_VERSION",
+        "CORS_ORIGINS",
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",
         "JWT_ACCESS_TOKEN_TTL",
@@ -13,6 +14,7 @@
         "JWT_SECRET",
         "JWT_TOKEN_AUDIENCE",
         "JWT_TOKEN_ISSUER",
+        "LOG_LEVEL",
         "NODE_ENV",
         "PORT",
         "RESEND_API_KEY",

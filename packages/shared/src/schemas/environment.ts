@@ -9,6 +9,8 @@ export const environmentSchema = z.object({
   RESEND_API_KEY: z.string(),
   MAIL_FROM: z.string().default('Convo <no-reply@example.com>'),
   WEB_URL: z.url().default('http://localhost:3000'),
+  CORS_ORIGINS: z.string().optional(),
+  LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
   JWT_SECRET: z.string(),
   JWT_TOKEN_AUDIENCE: z.string(),
   JWT_TOKEN_ISSUER: z.string(),

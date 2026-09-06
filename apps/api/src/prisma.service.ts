@@ -12,4 +12,8 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy() {
     await this.prisma.$disconnect();
   }
+
+  async ping() {
+    await this.prisma.$queryRaw`SELECT 1`;
+  }
 }
