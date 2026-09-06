@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { NestFactory, Reflector } from '@nestjs/core';
 import helmet from 'helmet';
 import { ZodValidationPipe } from 'nestjs-zod';
@@ -9,8 +10,16 @@ import { TransformResponseInterceptor } from '@/common/interceptors/transform-re
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
+
+  app.setGlobalPrefix('api/v1');
 
   app.use(helmet());
+
+  app.enableCors({
+    origin: configService.getOrThrow<string>('app.webUrl'),
+    credentials: true,
+  });
 
   app.useGlobalPipes(new ZodValidationPipe());
   // Later filters take precedence, so the specific Zod filter is registered last.
