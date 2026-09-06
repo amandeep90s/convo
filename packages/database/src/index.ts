@@ -1,10 +1,10 @@
-import path from 'node:path';
-
 import { PrismaPg } from '@prisma/adapter-pg';
 import { config } from 'dotenv';
+
+import { getRootEnvPath } from './env.util.js';
 import { PrismaClient } from './generated/prisma/client.js';
 
-config({ path: path.resolve(__dirname, '../../.env') });
+config({ path: getRootEnvPath() });
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -29,3 +29,4 @@ if (process.env['NODE_ENV'] !== 'production') {
 export { PrismaPg } from '@prisma/adapter-pg';
 export { PrismaClient } from './generated/prisma/client.js';
 export * from './generated/prisma/models.js';
+

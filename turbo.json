@@ -28,7 +28,7 @@
         "REDIS_PORT"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"]
+      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**", "dist/**", "src/generated/**"]
     },
     "lint": {
       "dependsOn": ["^lint"],
@@ -50,11 +50,12 @@
     },
     "test:e2e": {
       "cache": false,
-      "env": ["CI", "E2E_ALL_BROWSERS", "PORT"]
+      "env": ["CI", "E2E_ALL_BROWSERS", "PORT", "DATABASE_URL", "REDIS_HOST", "REDIS_PORT"]
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "dependsOn": ["^build"]
     }
   }
 }

@@ -63,14 +63,14 @@ Or connect from the host using any PostgreSQL client with:
 Host:     localhost
 Port:     55432
 User:     postgres
-Password: Aman@1234
+Password: <POSTGRES_PASSWORD>
 Database: convo_app
 ```
 
-Connection string (used by `packages/database/.env` and the API):
+Connection string (used in root `.env` by the database package and the API):
 
 ```bash
-DATABASE_URL=postgresql://postgres:Aman@1234@localhost:55432/convo_app?schema=public
+DATABASE_URL=postgresql://postgres:<POSTGRES_PASSWORD>@localhost:55432/convo_app?schema=public
 ```
 
 ## Accessing Redis
@@ -87,7 +87,7 @@ Or connect from the host with `redis-cli` installed locally:
 redis-cli -h localhost -p 56379
 ```
 
-Environment variables used by the API (see `apps/api/.env`):
+Environment variables used by the API (see root `.env`):
 
 ```bash
 REDIS_HOST=localhost

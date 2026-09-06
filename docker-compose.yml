@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: convo_app
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Aman@1234
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required (set it in .env)}
     ports:
       - '55432:5432'
     volumes:

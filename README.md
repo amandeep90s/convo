@@ -15,7 +15,11 @@ Install dependencies from the repository root:
 pnpm install
 ```
 
-Set `DATABASE_URL` in `packages/database/.env` before running database commands or the API.
+Copy the example environment file and configure your variables:
+
+```bash
+cp .env.example .env
+```
 
 To run PostgreSQL and Redis without using the default host ports, start the Docker services:
 
@@ -23,10 +27,10 @@ To run PostgreSQL and Redis without using the default host ports, start the Dock
 docker compose up -d
 ```
 
-The services use host ports `55432` for PostgreSQL and `56379` for Redis. Configure the API and Prisma package with:
+The services use host ports `55432` for PostgreSQL and `56379` for Redis. The default connection values in `.env.example` are:
 
 ```dotenv
-DATABASE_URL=postgresql://postgres:Aman@1234@localhost:55432/convo_app?schema=public
+DATABASE_URL=postgresql://postgres:<POSTGRES_PASSWORD>@localhost:55432/convo_app?schema=public
 REDIS_HOST=localhost
 REDIS_PORT=56379
 ```

@@ -15,6 +15,7 @@ import { AllExceptionsFilter } from '@/common/filters/all-exceptions.filter';
 import { ZodValidationExceptionFilter } from '@/common/filters/zod-validation-exception.filter';
 import { TransformResponseInterceptor } from '@/common/interceptors/transform-response.interceptor';
 import { AppLoggerModule } from '@/common/logger/logger.module';
+import { getRootEnvPath } from '@/common/utils/env.util';
 import appConfig from '@/config/app.config';
 import mailConfig from '@/config/mail.config';
 import { ContactsModule } from '@/contacts/contacts.module';
@@ -37,12 +38,19 @@ import { UserSettingsModule } from '@/user-settings/user-settings.module';
 import { UsersModule } from '@/users/users.module';
 
 const ENV = process.env.NODE_ENV;
+const envFilePath = !ENV
+  ? getRootEnvPath('.env')
+  : [
+      getRootEnvPath(`.env.${ENV}.local`),
+      getRootEnvPath(`.env.${ENV}`),
+      getRootEnvPath('.env'),
+    ];
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: !ENV ? '.env' : `.env.${ENV}`,
+      envFilePath,
       load: [appConfig, mailConfig],
       validationSchema: environmentSchema,
     }),
