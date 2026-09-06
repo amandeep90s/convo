@@ -26,5 +26,6 @@ if (process.env['NODE_ENV'] !== 'production') {
   globalForPrisma.prisma = db;
 }
 
+export { PrismaPg } from '@prisma/adapter-pg';
 export { PrismaClient } from './generated/prisma/client.js';
 export * from './generated/prisma/models.js';

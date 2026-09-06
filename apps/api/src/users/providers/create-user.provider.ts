@@ -1,8 +1,8 @@
 import { Inject, Injectable, RequestTimeoutException } from '@nestjs/common';
-import { db } from '@repo/db';
 import type { RegisterDto, TRegisterResponse } from '@repo/shared';
 
 import { HashingProvider } from '@/auth/providers/hashing.provider';
+import { PrismaService } from '@/prisma.service';
 
 @Injectable()
 export class CreateUserProvider {
@@ -12,6 +12,11 @@ export class CreateUserProvider {
      */
     @Inject(HashingProvider)
     private readonly hashingProvider: HashingProvider,
+
+    /**
+     * Injecting PrismaService to handle database operations
+     */
+    private readonly prisma: PrismaService,
   ) {}
 
   public async create(createUserDto: RegisterDto): Promise<TRegisterResponse> {
@@ -20,7 +25,7 @@ export class CreateUserProvider {
         createUserDto.password,
       );
 
-      return await db.user.create({
+      return await this.prisma.user.create({
         data: {
           name: createUserDto.name,
           username: createUserDto.username,

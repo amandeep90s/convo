@@ -4,6 +4,7 @@ export const environmentSchema = z.object({
   API_VERSION: z.string().default('v1'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(3001),
+  DATABASE_URL: z.string().min(1),
   THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
   THROTTLE_TTL: z.coerce.number().int().positive().default(60_000),
   RESEND_API_KEY: z.string(),
