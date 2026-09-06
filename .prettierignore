@@ -9,3 +9,5 @@ pnpm-lock.yaml
 CHANGELOG.md
 docs
 packages/database
+apps/web/next-env.d.ts
+*.d.ts
