@@ -1,17 +1,13 @@
-import { randomBytes } from 'node:crypto';
-
 import {
   ConflictException,
   forwardRef,
   Inject,
   Injectable,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import type { RegisterDto, TRegisterResponse } from '@repo/shared';
+import type { RegisterDto } from '@repo/shared';
 
-import { HashingProvider } from '@/auth/providers/hashing.provider';
-import { MailService } from '@/mail/mail.service';
-import { PrismaService } from '@/prisma.service';
+import { SendVerificationEmailProvider } from '@/auth/providers/send-verification-email.provider';
+import { VerificationTokenProvider } from '@/auth/providers/verification-token.provider';
 import { UsersService } from '@/users/providers/users.service';
 
 @Injectable()
@@ -24,24 +20,14 @@ export class RegisterUserProvider {
     private readonly usersService: UsersService,
 
     /**
-     * Injecting Configuration service to access application configuration
+     * Injecting IssueVerificationTokenProvider to issue verification tokens and send verification emails
      */
-    private readonly configService: ConfigService,
+    private readonly verificationToken: VerificationTokenProvider,
 
     /**
-     * Injecting Mail service to send verification emails
+     * Injecting SendVerificationEmailProvider to send verification emails to users
      */
-    private readonly mailService: MailService,
-
-    /**
-     * Injecting HashingProvider to handle password and token hashing
-     */
-    private readonly hashingProvider: HashingProvider,
-
-    /**
-     * Injecting PrismaService to handle database operations
-     */
-    private readonly prisma: PrismaService,
+    private readonly sendVerificationEmail: SendVerificationEmailProvider,
   ) {}
 
   public async register(body: RegisterDto) {
@@ -61,29 +47,10 @@ export class RegisterUserProvider {
 
     const user = await this.usersService.create(body);
 
-    // Issue a verification token and send a verification email to the user
-    await this.issueVerificationToken(user);
+    const token = await this.verificationToken.issue(user);
 
-    return {
-      message: 'User registered successfully',
-    };
-  }
+    await this.sendVerificationEmail.send(user.email, user.name, token);
 
-  private async issueVerificationToken(user: TRegisterResponse): Promise<void> {
-    const token = randomBytes(32).toString('hex');
-    const tokenExpiresIn = this.configService.getOrThrow<number>(
-      'mail.verificationTokenTtl',
-    );
-    const expiresAt = new Date(Date.now() + tokenExpiresIn * 60_000);
-
-    await this.prisma.emailVerification.create({
-      data: {
-        user_id: user.id,
-        token_hash: this.hashingProvider.hashToken(token),
-        expires_at: expiresAt,
-      },
-    });
-
-    await this.mailService.sendVerificationEmail(user.email, user.name, token);
+    return true;
   }
 }
