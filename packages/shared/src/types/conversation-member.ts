@@ -1,5 +1,5 @@
 import type { DatabaseDate } from './prisma-common.js';
-import type { EMemberRole, ENotificationPolicy } from '../enums/conversation-member.js';
+import type { EMemberRole, ENotificationPolicy } from '@repo/db';
 
 export type TConversationMember = {
   conversation_id: string;

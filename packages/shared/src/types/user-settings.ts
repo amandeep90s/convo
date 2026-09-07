@@ -1,5 +1,5 @@
 import type { DatabaseDate } from './prisma-common.js';
-import type { EVisibility } from '../enums/user-settings.js';
+import type { EVisibility } from '@repo/db';
 
 export type TUserSettings = {
   user_id: string;

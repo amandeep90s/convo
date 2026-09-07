@@ -1,32 +1,32 @@
 -- CreateEnum
-CREATE TYPE "ConversationType" AS ENUM ('private', 'group', 'community');
+CREATE TYPE "EConversationType" AS ENUM ('private', 'group', 'community');
 
 -- CreateEnum
-CREATE TYPE "MessageType" AS ENUM ('text', 'image', 'video', 'audio', 'document', 'location', 'contact', 'system', 'call');
+CREATE TYPE "EMessageType" AS ENUM ('text', 'image', 'video', 'audio', 'document', 'location', 'contact', 'system', 'call');
 
 -- CreateEnum
-CREATE TYPE "CallType" AS ENUM ('audio', 'video');
+CREATE TYPE "ECallType" AS ENUM ('audio', 'video');
 
 -- CreateEnum
-CREATE TYPE "CallStatus" AS ENUM ('ringing', 'accepted', 'rejected', 'missed', 'ended');
+CREATE TYPE "ECallStatus" AS ENUM ('ringing', 'accepted', 'rejected', 'missed', 'ended');
 
 -- CreateEnum
-CREATE TYPE "DeviceType" AS ENUM ('web', 'android', 'ios', 'desktop');
+CREATE TYPE "EDeviceType" AS ENUM ('web', 'android', 'ios', 'desktop');
 
 -- CreateEnum
-CREATE TYPE "MemberRole" AS ENUM ('admin', 'member');
+CREATE TYPE "EMemberRole" AS ENUM ('admin', 'member');
 
 -- CreateEnum
-CREATE TYPE "NotificationPolicy" AS ENUM ('all', 'mentions_only', 'none');
+CREATE TYPE "ENotificationPolicy" AS ENUM ('all', 'mentions_only', 'none');
 
 -- CreateEnum
-CREATE TYPE "MessageDeletionKind" AS ENUM ('sender', 'group_admin', 'moderation', 'system');
+CREATE TYPE "EMessageDeletionKind" AS ENUM ('sender', 'group_admin', 'moderation', 'system');
 
 -- CreateEnum
-CREATE TYPE "UserStatus" AS ENUM ('active', 'inactive', 'banned');
+CREATE TYPE "EUserStatus" AS ENUM ('active', 'inactive', 'banned');
 
 -- CreateEnum
-CREATE TYPE "Visibility" AS ENUM ('everyone', 'contacts', 'nobody');
+CREATE TYPE "EVisibility" AS ENUM ('everyone', 'contacts', 'nobody');
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -38,7 +38,7 @@ CREATE TABLE "users" (
     "about" TEXT,
     "avatar_url" TEXT,
     "password_hash" TEXT,
-    "status" "UserStatus" NOT NULL DEFAULT 'active',
+    "status" "EUserStatus" NOT NULL DEFAULT 'active',
     "email_verified_at" TIMESTAMPTZ(6),
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
@@ -53,9 +53,9 @@ CREATE TABLE "user_settings" (
     "language" VARCHAR(10) NOT NULL DEFAULT 'en',
     "theme" VARCHAR(20) NOT NULL DEFAULT 'system',
     "read_receipts" BOOLEAN NOT NULL DEFAULT true,
-    "last_seen_visibility" "Visibility" NOT NULL DEFAULT 'everyone',
-    "online_visibility" "Visibility" NOT NULL DEFAULT 'contacts',
-    "profile_visibility" "Visibility" NOT NULL DEFAULT 'everyone',
+    "last_seen_visibility" "EVisibility" NOT NULL DEFAULT 'everyone',
+    "online_visibility" "EVisibility" NOT NULL DEFAULT 'contacts',
+    "profile_visibility" "EVisibility" NOT NULL DEFAULT 'everyone',
     "notification_enabled" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE "user_settings" (
 CREATE TABLE "user_devices" (
     "id" UUID NOT NULL,
     "user_id" UUID NOT NULL,
-    "device_type" "DeviceType" NOT NULL,
+    "device_type" "EDeviceType" NOT NULL,
     "device_name" VARCHAR(100),
     "push_token" TEXT,
     "public_key" TEXT,
@@ -126,7 +126,7 @@ CREATE TABLE "blocked_users" (
 -- CreateTable
 CREATE TABLE "conversations" (
     "id" UUID NOT NULL,
-    "type" "ConversationType" NOT NULL,
+    "type" "EConversationType" NOT NULL,
     "name" VARCHAR(100),
     "avatar_url" TEXT,
     "created_by" UUID NOT NULL,
@@ -165,11 +165,11 @@ CREATE TABLE "groups" (
 CREATE TABLE "conversation_members" (
     "conversation_id" UUID NOT NULL,
     "user_id" UUID NOT NULL,
-    "role" "MemberRole" NOT NULL DEFAULT 'member',
+    "role" "EMemberRole" NOT NULL DEFAULT 'member',
     "joined_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "left_at" TIMESTAMPTZ(6),
     "muted_until" TIMESTAMPTZ(6),
-    "notification_policy" "NotificationPolicy" NOT NULL DEFAULT 'all',
+    "notification_policy" "ENotificationPolicy" NOT NULL DEFAULT 'all',
     "archived_at" TIMESTAMPTZ(6),
     "last_read_message_id" UUID,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -183,12 +183,12 @@ CREATE TABLE "messages" (
     "conversation_id" UUID NOT NULL,
     "sender_id" UUID NOT NULL,
     "reply_to_id" UUID,
-    "type" "MessageType" NOT NULL,
+    "type" "EMessageType" NOT NULL,
     "content" TEXT,
     "metadata" JSONB,
     "edited_at" TIMESTAMPTZ(6),
     "deleted_by_id" UUID,
-    "deletion_kind" "MessageDeletionKind",
+    "deletion_kind" "EMessageDeletionKind",
     "expires_at" TIMESTAMPTZ(6),
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
@@ -227,7 +227,7 @@ CREATE TABLE "pinned_messages" (
 CREATE TABLE "message_attachments" (
     "id" UUID NOT NULL,
     "message_id" UUID NOT NULL,
-    "type" "MessageType" NOT NULL,
+    "type" "EMessageType" NOT NULL,
     "storage_key" TEXT NOT NULL,
     "mime_type" VARCHAR(100) NOT NULL,
     "file_name" VARCHAR(255),
@@ -266,8 +266,8 @@ CREATE TABLE "calls" (
     "id" UUID NOT NULL,
     "conversation_id" UUID NOT NULL,
     "initiated_by" UUID NOT NULL,
-    "type" "CallType" NOT NULL,
-    "status" "CallStatus" NOT NULL,
+    "type" "ECallType" NOT NULL,
+    "status" "ECallStatus" NOT NULL,
     "started_at" TIMESTAMPTZ(6),
     "ended_at" TIMESTAMPTZ(6),
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,

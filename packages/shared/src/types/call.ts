@@ -1,5 +1,5 @@
 import type { DatabaseDate } from './prisma-common.js';
-import type { ECallStatus, ECallType } from '../enums/call.js';
+import type { ECallStatus, ECallType } from '@repo/db';
 
 export type TCall = {
   id: string;

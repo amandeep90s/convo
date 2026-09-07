@@ -1,4 +1,5 @@
-import type { EAuthStatus, EUserRole } from '../enums/auth.js';
+export type EUserRole = 'admin' | 'member';
+export type EAuthStatus = 'active' | 'inactive' | 'suspended';
 
 export type TUserSummary = {
   id: string;
@@ -12,6 +13,14 @@ export type TUserSummary = {
 export type TLoginRequest = {
   email: string;
   password: string;
+};
+
+export type TAuthenticatedUser = {
+  id: string;
+  username: string;
+  email: string;
+  displayName: string | null;
+  avatarUrl: string | null;
 };
 
 export type TRegisterRequest = {

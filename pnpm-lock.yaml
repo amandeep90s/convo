@@ -502,6 +502,9 @@ importers:
 
   packages/shared:
     dependencies:
+      '@repo/db':
+        specifier: workspace:*
+        version: link:../database
       zod:
         specifier: ^4.5.4
         version: 4.5.4

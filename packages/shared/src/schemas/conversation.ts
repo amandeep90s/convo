@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { CONVERSATION_TYPES } from '../enums/conversation.js';
+import { CONVERSATION_TYPES } from '../constants/conversation.js';
 
 export const conversationTypeSchema = z.enum(CONVERSATION_TYPES);
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { VISIBILITIES } from '../enums/user-settings.js';
+import { VISIBILITIES } from '../constants/user-settings.js';
 
 export const visibilitySchema = z.enum(VISIBILITIES);
 

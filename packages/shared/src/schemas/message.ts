@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { MESSAGE_DELETION_KINDS, MESSAGE_TYPES } from '../enums/message.js';
+import { MESSAGE_DELETION_KINDS, MESSAGE_TYPES } from '../constants/message.js';
 
 export const messageTypeSchema = z.enum(MESSAGE_TYPES);
 
