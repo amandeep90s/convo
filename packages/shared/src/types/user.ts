@@ -1,5 +1,5 @@
+import { EUserStatus } from '@repo/db';
 import type { DatabaseDate } from './prisma-common.js';
-import type { EUserStatus } from '../enums/index.js';
 
 export type TUser = {
   id: string;

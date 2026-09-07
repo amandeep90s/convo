@@ -28,5 +28,6 @@ if (process.env['NODE_ENV'] !== 'production') {
 
 export { PrismaPg } from '@prisma/adapter-pg';
 export { PrismaClient } from './generated/prisma/client.js';
+export * from './generated/prisma/enums.js';
 export * from './generated/prisma/models.js';
 

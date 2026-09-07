@@ -1,4 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { EUserStatus } from '@repo/db';
 import type { LoginDto } from '@repo/shared';
 
 import { FindOneUserByIdentifierProvider } from '@/users/providers/find-one-user-by-identifier.provider';
@@ -41,7 +42,7 @@ export class LoginUserProvider {
       throw new UnauthorizedException('Email not verified');
     }
 
-    if (user.status !== 'active') {
+    if (user.status !== EUserStatus.active) {
       throw new UnauthorizedException(`Your account is ${user.status}`);
     }
   }

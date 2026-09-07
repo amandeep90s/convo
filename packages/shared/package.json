@@ -17,6 +17,7 @@
     "check-types": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@repo/db": "workspace:*",
     "zod": "^4.5.4"
   },
   "devDependencies": {

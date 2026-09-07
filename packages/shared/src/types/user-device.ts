@@ -1,5 +1,5 @@
 import type { DatabaseDate } from './prisma-common.js';
-import type { EDeviceType } from '../enums/index.js';
+import type { EDeviceType } from '@repo/db';
 
 export type TUserDevice = {
   id: string;
