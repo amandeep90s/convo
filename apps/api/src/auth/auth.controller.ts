@@ -1,11 +1,11 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 
+import { LoginDto } from '@/auth/dtos/login.dto';
 import { RegisterUserDto } from '@/auth/dtos/register.dto';
+import { ResendVerificationDto } from '@/auth/dtos/resend-verification.dto';
+import { VerifyEmailDto } from '@/auth/dtos/verify-email.dto';
 import { AuthService } from '@/auth/providers/auth.service';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
-
-import { ResendVerificationDto } from './dtos/resend-verification.dto';
-import { VerifyEmailDto } from './dtos/verify-email.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -35,5 +35,12 @@ export class AuthController {
   @ResponseMessage('If the account exists, a verification email has been sent')
   resendVerification(@Body() body: ResendVerificationDto) {
     return this.authService.resendVerification(body);
+  }
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('User logged in successfully')
+  login(@Body() body: LoginDto) {
+    return this.authService.login(body);
   }
 }
