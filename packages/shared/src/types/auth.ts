@@ -14,6 +14,14 @@ export type TLoginRequest = {
   password: string;
 };
 
+export type TAuthenticatedUser = {
+  id: string;
+  username: string;
+  email: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+};
+
 export type TRegisterRequest = {
   name: string;
   username: string;

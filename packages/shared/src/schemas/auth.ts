@@ -12,8 +12,8 @@ export const authUserStatusSchema = userStatusSchema;
 export const authProviderTypeSchema = authProviderSchema;
 
 export const loginSchema = z.object({
-  email: emailSchema,
-  password: passwordSchema,
+  identifier: z.string().trim().min(1, 'Identifier is required'),
+  password: z.string().min(1, 'Password is required'),
 });
 
 export const registerSchema = z

@@ -9,6 +9,8 @@ import { UsersProvider } from '@/users/providers/users.provider';
 import { UsersService } from '@/users/providers/users.service';
 import { UsersController } from '@/users/users.controller';
 
+import { FindOneUserByIdentifierProvider } from './providers/find-one-user-by-identifier.provider';
+
 @Module({
   controllers: [UsersController],
   providers: [
@@ -17,6 +19,7 @@ import { UsersController } from '@/users/users.controller';
     FindOneUserByEmailProvider,
     FindOneUserByUsernameProvider,
     CreateUserProvider,
+    FindOneUserByIdentifierProvider,
   ],
   exports: [
     UsersService,
