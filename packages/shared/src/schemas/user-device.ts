@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { DEVICE_TYPES } from '../enums/user-device.js';
+import { DEVICE_TYPES } from '../constants/user-device.js';
 
 export const deviceTypeSchema = z.enum(DEVICE_TYPES);
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { CALL_STATUSES, CALL_TYPES } from '../enums/call.js';
+import { CALL_STATUSES, CALL_TYPES } from '../constants/call.js';
 
 export const callTypeSchema = z.enum(CALL_TYPES);
 export const callStatusSchema = z.enum(CALL_STATUSES);

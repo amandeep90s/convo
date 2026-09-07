@@ -1,5 +1,5 @@
 import type { DatabaseDate } from './prisma-common.js';
-import type { EConversationType } from '../enums/conversation.js';
+import type { EConversationType } from '../enums/index.js';
 
 export type TConversation = {
   id: string;

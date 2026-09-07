@@ -1,5 +1,5 @@
 import type { DatabaseBigInt, DatabaseDate } from './prisma-common.js';
-import type { EMessageDeletionKind, EMessageType } from '../enums/message.js';
+import type { EMessageDeletionKind, EMessageType } from '../enums/index.js';
 
 export type TMessage = {
   id: string;

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { MEMBER_ROLES, NOTIFICATION_POLICIES } from '../enums/conversation-member.js';
+import { MEMBER_ROLES, NOTIFICATION_POLICIES } from '../constants/conversation-member.js';
 
 export const memberRoleSchema = z.enum(MEMBER_ROLES);
 export const notificationPolicySchema = z.enum(NOTIFICATION_POLICIES);

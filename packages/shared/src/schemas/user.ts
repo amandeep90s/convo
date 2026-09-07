@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { USER_ACCOUNT_STATUSES } from '../enums/user.js';
 import { emailSchema, passwordSchema } from './common.js';
+import { USER_ACCOUNT_STATUSES } from '../constants/user.js';
 
 export const userAccountStatusSchema = z.enum(USER_ACCOUNT_STATUSES);
 

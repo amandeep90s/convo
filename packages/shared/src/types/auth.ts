@@ -1,4 +1,5 @@
-import type { EAuthStatus, EUserRole } from '../enums/auth.js';
+export type EUserRole = 'admin' | 'member';
+export type EAuthStatus = 'active' | 'inactive' | 'suspended';
 
 export type TUserSummary = {
   id: string;
