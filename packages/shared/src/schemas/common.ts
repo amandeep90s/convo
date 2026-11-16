@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 export const idSchema = z.string().min(1, 'ID is required');
 
+export const dateTimeSchema = z.iso.datetime({ offset: true }).transform((value) => new Date(value));
+
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { MESSAGE_DELETION_KINDS, MESSAGE_TYPES } from '../constants/message.js';
-import { paginationParamsSchema } from './common.js';
+import { dateTimeSchema, paginationParamsSchema } from './common.js';
 
 export const messageTypeSchema = z.enum(MESSAGE_TYPES);
 
@@ -32,7 +32,7 @@ export const createMessageSchema = z.object({
   type: messageTypeSchema,
   content: z.string().max(10000).optional(),
   metadata: z.record(z.string(), z.json()).optional(),
-  expires_at: z.coerce.date().optional(),
+  expires_at: dateTimeSchema.optional(),
 });
 
 export const updateMessageSchema = z.object({
@@ -44,8 +44,8 @@ export const searchMessagesParamsSchema = paginationParamsSchema
     q: z.string().trim().min(2).max(100),
     conversationId: z.uuid().optional(),
     sender: z.string().trim().min(2).max(100).optional(),
-    from: z.coerce.date().optional(),
-    to: z.coerce.date().optional(),
+    from: dateTimeSchema.optional(),
+    to: dateTimeSchema.optional(),
     attachmentType: z.enum(['image', 'video', 'audio', 'document']).optional(),
   })
   .refine((params) => !params.from || !params.to || params.from <= params.to, {

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { MEMBER_ROLES, NOTIFICATION_POLICIES } from '../constants/conversation-member.js';
+import { dateTimeSchema } from './common.js';
 
 export const memberRoleSchema = z.enum(MEMBER_ROLES);
 export const notificationPolicySchema = z.enum(NOTIFICATION_POLICIES);
@@ -26,11 +27,11 @@ export const createConversationMemberSchema = z.object({
 
 export const updateConversationMemberSchema = z.object({
   role: memberRoleSchema.optional(),
-  left_at: z.coerce.date().optional(),
-  muted_until: z.coerce.date().nullable().optional(),
+  left_at: dateTimeSchema.optional(),
+  muted_until: dateTimeSchema.nullable().optional(),
   notification_policy: notificationPolicySchema.optional(),
-  archived_at: z.coerce.date().nullable().optional(),
-  starred_at: z.coerce.date().nullable().optional(),
+  archived_at: dateTimeSchema.nullable().optional(),
+  starred_at: dateTimeSchema.nullable().optional(),
   last_read_message_id: z.uuid().optional(),
 });
 
