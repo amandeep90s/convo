@@ -1,8 +1,9 @@
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
-import { ZodValidationPipe } from 'nestjs-zod';
+import { cleanupOpenApiDoc, ZodValidationPipe } from 'nestjs-zod';
 
 import { AppModule } from '@/app.module';
 
@@ -24,6 +25,22 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
     exposedHeaders: ['X-Request-Id'],
     maxAge: 86_400,
+  });
+
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Convo API')
+    .setDescription(
+      'HTTP API for Convo accounts, messaging, groups, and calls.',
+    )
+    .setVersion('1.0')
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      'access-token',
+    )
+    .build();
+  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('docs', app, cleanupOpenApiDoc(swaggerDocument), {
+    useGlobalPrefix: true,
   });
 
   app.useGlobalPipes(new ZodValidationPipe());

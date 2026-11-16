@@ -11,8 +11,10 @@ import { AuthModule } from '@/auth/auth.module';
 import { BlockedUsersModule } from '@/blocked-users/blocked-users.module';
 import { CallParticipantsModule } from '@/call-participants/call-participants.module';
 import { CallsModule } from '@/calls/calls.module';
+import { CommonModule } from '@/common/common.module';
 import { AllExceptionsFilter } from '@/common/filters/all-exceptions.filter';
 import { ZodValidationExceptionFilter } from '@/common/filters/zod-validation-exception.filter';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { TransformResponseInterceptor } from '@/common/interceptors/transform-response.interceptor';
 import { AppLoggerModule } from '@/common/logger/logger.module';
 import { getRootEnvPath } from '@/common/utils/env.util';
@@ -32,6 +34,7 @@ import { MessagesModule } from '@/messages/messages.module';
 import { PinnedMessagesModule } from '@/pinned-messages/pinned-messages.module';
 import { PrismaModule } from '@/prisma.module';
 import { PrivateConversationsModule } from '@/private-conversations/private-conversations.module';
+import { RealtimeModule } from '@/realtime/realtime.module';
 import { UserDevicesModule } from '@/user-devices/user-devices.module';
 import { UserSessionsModule } from '@/user-sessions/user-sessions.module';
 import { UserSettingsModule } from '@/user-settings/user-settings.module';
@@ -55,6 +58,7 @@ const envFilePath = !ENV
       validationSchema: environmentSchema,
     }),
     AppLoggerModule,
+    CommonModule,
     PrismaModule,
     HealthModule,
     ThrottlerModule.forRootAsync({
@@ -79,6 +83,7 @@ const envFilePath = !ENV
       }),
     }),
     AuthModule,
+    RealtimeModule,
     MessagesModule,
     UserDevicesModule,
     UserSessionsModule,
@@ -105,6 +110,10 @@ const envFilePath = !ENV
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
     },
     {
       provide: APP_INTERCEPTOR,

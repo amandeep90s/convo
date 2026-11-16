@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { MESSAGE_DELETION_KINDS, MESSAGE_TYPES } from '../constants/message.js';
+import { dateTimeSchema, paginationParamsSchema } from './common.js';
 
 export const messageTypeSchema = z.enum(MESSAGE_TYPES);
 
@@ -15,7 +16,7 @@ export const messageSchema = z.object({
   reply_to_id: z.uuid().nullable().optional(),
   type: messageTypeSchema,
   content: z.string().nullable().optional(),
-  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+  metadata: z.record(z.string(), z.json()).nullable().optional(),
   edited_at: z.coerce.date().nullable().optional(),
   deleted_by_id: z.uuid().nullable().optional(),
   deletion_kind: messageDeletionKindSchema.nullable().optional(),
@@ -30,13 +31,27 @@ export const createMessageSchema = z.object({
   reply_to_id: z.uuid().optional(),
   type: messageTypeSchema,
   content: z.string().max(10000).optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-  expires_at: z.coerce.date().optional(),
+  metadata: z.record(z.string(), z.json()).optional(),
+  expires_at: dateTimeSchema.optional(),
 });
 
 export const updateMessageSchema = z.object({
   content: z.string().max(10000),
 });
+
+export const searchMessagesParamsSchema = paginationParamsSchema
+  .extend({
+    q: z.string().trim().min(2).max(100),
+    conversationId: z.uuid().optional(),
+    sender: z.string().trim().min(2).max(100).optional(),
+    from: dateTimeSchema.optional(),
+    to: dateTimeSchema.optional(),
+    attachmentType: z.enum(['image', 'video', 'audio', 'document']).optional(),
+  })
+  .refine((params) => !params.from || !params.to || params.from <= params.to, {
+    message: 'The start date must be before the end date',
+    path: ['to'],
+  });
 
 export const deleteMessageSchema = z.object({
   deletion_kind: messageDeletionKindSchema,
@@ -115,6 +130,7 @@ export type MessageType = z.infer<typeof messageTypeSchema>;
 export type MessageDeletionKind = z.infer<typeof messageDeletionKindSchema>;
 export type CreateMessageDto = z.infer<typeof createMessageSchema>;
 export type UpdateMessageDto = z.infer<typeof updateMessageSchema>;
+export type SearchMessagesParams = z.infer<typeof searchMessagesParamsSchema>;
 export type DeleteMessageDto = z.infer<typeof deleteMessageSchema>;
 export type MessageAttachment = z.infer<typeof messageAttachmentSchema>;
 export type CreateMessageAttachmentDto = z.infer<typeof createMessageAttachmentSchema>;

@@ -22,6 +22,7 @@ export const environmentSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string(),
   REDIS_HOST: z.string(),
   REDIS_PORT: z.coerce.number().int().positive(),
+  UPLOAD_DIR: z.string().default('./uploads'),
 });
 
 // Types

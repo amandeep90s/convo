@@ -2,14 +2,14 @@
 
 ## Purpose
 
-Associates users with conversations and stores each member's role, notification behavior, archive state, and read position.
+Associates users with conversations and stores each member's role, notification behavior, archive/star state, and read position.
 
 ## Features
 
 - Composite primary key: `conversation_id` + `user_id`.
 - Supports `admin` and `member` roles.
 - Supports notification policies: `all`, `mentions_only`, and `none`.
-- Tracks join, leave, mute, archive, and last-read-message state.
+- Tracks join, leave, mute, archive, star, and last-read-message state.
 - Indexed by `user_id` for listing a user's conversations.
 
 ## Relations

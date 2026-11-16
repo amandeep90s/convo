@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { DEVICE_TYPES } from '../constants/user-device.js';
+import { dateTimeSchema } from './common.js';
 
 export const deviceTypeSchema = z.enum(DEVICE_TYPES);
 
@@ -27,8 +28,7 @@ export const updateUserDeviceSchema = z.object({
   device_name: z.string().max(100).optional(),
   push_token: z.string().optional(),
   public_key: z.string().optional(),
-  last_seen_at: z.coerce.date().optional(),
-  revoked_at: z.coerce.date().optional(),
+  last_seen_at: dateTimeSchema.optional(),
 });
 
 // Types

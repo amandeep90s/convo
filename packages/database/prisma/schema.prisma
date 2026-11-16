@@ -44,6 +44,8 @@ model User {
     created_group_invites       GroupInvite[]         @relation("GroupInviteCreator")
     pinned_messages             PinnedMessage[]       @relation("PinnedBy")
     email_verification_tokens   EmailVerification[]
+    password_resets             PasswordReset[]
+    login_otp                   LoginOtp?
 
     @@map("users")
 }
@@ -113,6 +115,31 @@ model EmailVerification {
 
     @@index([user_id])
     @@map("email_verifications")
+}
+
+model PasswordReset {
+    id         String   @id @default(uuid(7)) @db.Uuid
+    user_id    String   @db.Uuid
+    token_hash String   @unique @db.Text
+    expires_at DateTime @db.Timestamptz(6)
+    created_at DateTime @default(now()) @db.Timestamptz(6)
+
+    user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+    @@index([user_id])
+    @@map("password_resets")
+}
+
+model LoginOtp {
+    user_id    String   @id @db.Uuid
+    code_hash  String   @db.Text
+    expires_at DateTime @db.Timestamptz(6)
+    attempts   Int      @default(0)
+    created_at DateTime @default(now()) @db.Timestamptz(6)
+
+    user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+    @@map("login_otps")
 }
 
 model Contact {
@@ -207,6 +234,7 @@ model ConversationMember {
     muted_until          DateTime?           @db.Timestamptz(6)
     notification_policy  ENotificationPolicy @default(all)
     archived_at          DateTime?           @db.Timestamptz(6)
+    starred_at           DateTime?           @db.Timestamptz(6)
     last_read_message_id String?             @db.Uuid
     created_at           DateTime            @default(now()) @db.Timestamptz(6)
 

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { CALL_STATUSES, CALL_TYPES } from '../constants/call.js';
+import { dateTimeSchema } from './common.js';
 
 export const callTypeSchema = z.enum(CALL_TYPES);
 export const callStatusSchema = z.enum(CALL_STATUSES);
@@ -23,8 +24,8 @@ export const createCallSchema = z.object({
 
 export const updateCallSchema = z.object({
   status: callStatusSchema.optional(),
-  started_at: z.coerce.date().optional(),
-  ended_at: z.coerce.date().optional(),
+  started_at: dateTimeSchema.optional(),
+  ended_at: dateTimeSchema.optional(),
 });
 
 export const callParticipantSchema = z.object({
@@ -39,8 +40,8 @@ export const createCallParticipantSchema = z.object({
 });
 
 export const updateCallParticipantSchema = z.object({
-  joined_at: z.coerce.date().optional(),
-  left_at: z.coerce.date().optional(),
+  joined_at: dateTimeSchema.optional(),
+  left_at: dateTimeSchema.optional(),
 });
 
 // Types

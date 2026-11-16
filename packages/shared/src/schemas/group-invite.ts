@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { dateTimeSchema } from './common.js';
+
 export const groupInviteSchema = z.object({
   id: z.uuid(),
   conversation_id: z.uuid(),
@@ -14,14 +16,14 @@ export const groupInviteSchema = z.object({
 });
 
 export const createGroupInviteSchema = z.object({
-  expires_at: z.coerce.date().optional(),
+  expires_at: dateTimeSchema.optional(),
   max_uses: z.number().int().positive().optional(),
 });
 
 export const updateGroupInviteSchema = z.object({
-  expires_at: z.coerce.date().nullable().optional(),
+  expires_at: dateTimeSchema.nullable().optional(),
   max_uses: z.number().int().positive().nullable().optional(),
-  revoked_at: z.coerce.date().optional(),
+  revoked_at: dateTimeSchema.optional(),
 });
 
 // Types
