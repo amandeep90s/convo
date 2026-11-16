@@ -2,6 +2,8 @@
 
 The HTTP API is prefixed with `/api/v1`. Successful JSON responses use the standard envelope; errors use the API error envelope. All routes below require a bearer access token unless marked **Public**. Identifiers are UUIDs.
 
+Interactive Swagger documentation is available at `/api/v1/docs`. Request bodies and DTO-based query parameters are generated from the shared Zod schemas. Successful responses show the standard response envelope, authenticated operations use the `access-token` bearer scheme, and file upload/download operations document their binary payloads.
+
 ## Authentication
 
 | Method | Route | Access | Purpose |

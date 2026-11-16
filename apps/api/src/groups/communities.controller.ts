@@ -9,7 +9,12 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+import {
+  ApiCreatedEndpoint,
+  ApiEndpoint,
+} from '@/common/decorators/api-endpoint.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
 import {
@@ -21,10 +26,13 @@ import type { AuthenticatedUser } from '@/common/types/authenticated-user';
 import { GroupsService } from '@/groups/providers/groups.service';
 
 @Controller('communities')
+@ApiTags('Communities')
+@ApiBearerAuth('access-token')
 export class CommunitiesController {
   constructor(private readonly groupsService: GroupsService) {}
 
   @Get()
+  @ApiEndpoint('List communities')
   list(
     @CurrentUser() user: AuthenticatedUser,
     @Query() pagination: PaginationDto,
@@ -39,11 +47,13 @@ export class CommunitiesController {
 
   @Post()
   @ResponseMessage('Community created')
+  @ApiCreatedEndpoint('Create a community')
   create(@CurrentUser() user: AuthenticatedUser, @Body() body: CreateGroupDto) {
     return this.groupsService.create(user.id, body, 'community');
   }
 
   @Get(':communityId')
+  @ApiEndpoint('Get a community')
   get(
     @CurrentUser() user: AuthenticatedUser,
     @Param('communityId', ParseUUIDPipe) communityId: string,
@@ -53,6 +63,7 @@ export class CommunitiesController {
 
   @Patch(':communityId')
   @ResponseMessage('Community updated')
+  @ApiEndpoint('Update a community')
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('communityId', ParseUUIDPipe) communityId: string,
@@ -62,6 +73,7 @@ export class CommunitiesController {
   }
 
   @Delete(':communityId')
+  @ApiEndpoint('Delete a community')
   remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param('communityId', ParseUUIDPipe) communityId: string,

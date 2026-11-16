@@ -9,7 +9,12 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+import {
+  ApiCreatedEndpoint,
+  ApiEndpoint,
+} from '@/common/decorators/api-endpoint.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
 import {
@@ -21,10 +26,13 @@ import type { AuthenticatedUser } from '@/common/types/authenticated-user';
 import { MessagesService } from '@/messages/providers/messages.service';
 
 @Controller('messages')
+@ApiTags('Messages')
+@ApiBearerAuth('access-token')
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
 
   @Get('search')
+  @ApiEndpoint('Search messages and filter matching results')
   search(
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: SearchMessagesDto,
@@ -33,6 +41,7 @@ export class MessagesController {
   }
 
   @Get()
+  @ApiEndpoint('List messages in a conversation')
   list(
     @CurrentUser() user: AuthenticatedUser,
     @Query('conversationId', ParseUUIDPipe) conversationId: string,
@@ -50,6 +59,7 @@ export class MessagesController {
 
   @Post()
   @ResponseMessage('Message sent')
+  @ApiCreatedEndpoint('Send a message')
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: CreateMessageDto,
@@ -58,6 +68,7 @@ export class MessagesController {
   }
 
   @Get(':messageId')
+  @ApiEndpoint('Get a message')
   get(
     @CurrentUser() user: AuthenticatedUser,
     @Param('messageId', ParseUUIDPipe) messageId: string,
@@ -67,6 +78,7 @@ export class MessagesController {
 
   @Patch(':messageId')
   @ResponseMessage('Message updated')
+  @ApiEndpoint('Edit a message')
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('messageId', ParseUUIDPipe) messageId: string,
@@ -76,6 +88,7 @@ export class MessagesController {
   }
 
   @Delete(':messageId')
+  @ApiEndpoint('Delete a message')
   remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param('messageId', ParseUUIDPipe) messageId: string,

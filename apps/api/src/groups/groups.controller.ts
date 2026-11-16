@@ -9,7 +9,12 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+import {
+  ApiCreatedEndpoint,
+  ApiEndpoint,
+} from '@/common/decorators/api-endpoint.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
 import {
@@ -21,10 +26,13 @@ import type { AuthenticatedUser } from '@/common/types/authenticated-user';
 import { GroupsService } from '@/groups/providers/groups.service';
 
 @Controller('groups')
+@ApiTags('Groups')
+@ApiBearerAuth('access-token')
 export class GroupsController {
   constructor(private readonly groupsService: GroupsService) {}
 
   @Get()
+  @ApiEndpoint('List groups')
   list(
     @CurrentUser() user: AuthenticatedUser,
     @Query() pagination: PaginationDto,
@@ -38,11 +46,13 @@ export class GroupsController {
 
   @Post()
   @ResponseMessage('Group created')
+  @ApiCreatedEndpoint('Create a group')
   create(@CurrentUser() user: AuthenticatedUser, @Body() body: CreateGroupDto) {
     return this.groupsService.create(user.id, body);
   }
 
   @Get(':conversationId')
+  @ApiEndpoint('Get a group')
   get(
     @CurrentUser() user: AuthenticatedUser,
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
@@ -52,6 +62,7 @@ export class GroupsController {
 
   @Patch(':conversationId')
   @ResponseMessage('Group updated')
+  @ApiEndpoint('Update a group')
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
@@ -61,6 +72,7 @@ export class GroupsController {
   }
 
   @Delete(':conversationId')
+  @ApiEndpoint('Delete a group')
   remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param('conversationId', ParseUUIDPipe) conversationId: string,

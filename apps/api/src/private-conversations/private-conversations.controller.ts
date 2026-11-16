@@ -7,7 +7,12 @@ import {
   ParseUUIDPipe,
   Post,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+import {
+  ApiCreatedEndpoint,
+  ApiEndpoint,
+} from '@/common/decorators/api-endpoint.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
 import { CreatePrivateConversationDto } from '@/common/dtos/api.dto';
@@ -15,6 +20,8 @@ import type { AuthenticatedUser } from '@/common/types/authenticated-user';
 import { PrivateConversationsService } from '@/private-conversations/providers/private-conversations.service';
 
 @Controller('private-conversations')
+@ApiTags('Private conversations')
+@ApiBearerAuth('access-token')
 export class PrivateConversationsController {
   constructor(
     private readonly privateConversationsService: PrivateConversationsService,
@@ -22,6 +29,7 @@ export class PrivateConversationsController {
 
   @Post()
   @ResponseMessage('Private conversation created')
+  @ApiCreatedEndpoint('Create or retrieve a private conversation')
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: CreatePrivateConversationDto,
@@ -37,6 +45,7 @@ export class PrivateConversationsController {
   }
 
   @Get(':conversationId')
+  @ApiEndpoint('Get private conversation details')
   get(
     @CurrentUser() user: AuthenticatedUser,
     @Param('conversationId', ParseUUIDPipe) conversationId: string,

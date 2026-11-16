@@ -8,8 +8,13 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { CallsService } from '@/calls/providers/calls.service';
+import {
+  ApiCreatedEndpoint,
+  ApiEndpoint,
+} from '@/common/decorators/api-endpoint.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
 import {
@@ -20,10 +25,13 @@ import {
 import type { AuthenticatedUser } from '@/common/types/authenticated-user';
 
 @Controller('calls')
+@ApiTags('Calls')
+@ApiBearerAuth('access-token')
 export class CallsController {
   constructor(private readonly callsService: CallsService) {}
 
   @Get()
+  @ApiEndpoint('List calls')
   list(
     @CurrentUser() user: AuthenticatedUser,
     @Query('conversationId') conversationId: string | undefined,
@@ -39,11 +47,13 @@ export class CallsController {
 
   @Post()
   @ResponseMessage('Call started')
+  @ApiCreatedEndpoint('Start a call')
   create(@CurrentUser() user: AuthenticatedUser, @Body() body: CreateCallDto) {
     return this.callsService.create(user.id, body);
   }
 
   @Get(':callId')
+  @ApiEndpoint('Get call details')
   get(
     @CurrentUser() user: AuthenticatedUser,
     @Param('callId', ParseUUIDPipe) callId: string,
@@ -53,6 +63,7 @@ export class CallsController {
 
   @Patch(':callId')
   @ResponseMessage('Call updated')
+  @ApiEndpoint('Update a call')
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('callId', ParseUUIDPipe) callId: string,

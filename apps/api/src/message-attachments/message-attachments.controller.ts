@@ -14,8 +14,21 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOkResponse,
+  ApiOperation,
+  ApiProduces,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Response } from 'express';
 
+import {
+  ApiCreatedEndpoint,
+  ApiEndpoint,
+} from '@/common/decorators/api-endpoint.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
 import type { AuthenticatedUser } from '@/common/types/authenticated-user';
@@ -25,10 +38,13 @@ import {
 } from '@/message-attachments/providers/message-attachments.service';
 
 @Controller('message-attachments')
+@ApiTags('Message attachments')
+@ApiBearerAuth('access-token')
 export class MessageAttachmentsController {
   constructor(private readonly attachmentsService: MessageAttachmentsService) {}
 
   @Get()
+  @ApiEndpoint('List attachments on a message')
   list(
     @CurrentUser() user: AuthenticatedUser,
     @Query('messageId', ParseUUIDPipe) messageId: string,
@@ -37,6 +53,15 @@ export class MessageAttachmentsController {
   }
 
   @Post('upload/:messageId')
+  @ApiCreatedEndpoint('Upload an attachment to a message')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+      required: ['file'],
+    },
+  })
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: 20 * 1024 * 1024, files: 1 },
@@ -72,6 +97,12 @@ export class MessageAttachmentsController {
   }
 
   @Get(':attachmentId/file')
+  @ApiOperation({ summary: 'Download an attachment' })
+  @ApiProduces('application/octet-stream')
+  @ApiOkResponse({
+    description: 'Attachment file stream',
+    schema: { type: 'string', format: 'binary' },
+  })
   async download(
     @CurrentUser() user: AuthenticatedUser,
     @Param('attachmentId', ParseUUIDPipe) attachmentId: string,
@@ -87,6 +118,7 @@ export class MessageAttachmentsController {
   }
 
   @Delete(':attachmentId')
+  @ApiEndpoint('Delete an attachment')
   remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param('attachmentId', ParseUUIDPipe) attachmentId: string,

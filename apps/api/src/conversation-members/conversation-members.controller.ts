@@ -9,7 +9,12 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+import {
+  ApiCreatedEndpoint,
+  ApiEndpoint,
+} from '@/common/decorators/api-endpoint.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
 import {
@@ -21,12 +26,15 @@ import type { AuthenticatedUser } from '@/common/types/authenticated-user';
 import { ConversationMembersService } from '@/conversation-members/providers/conversation-members.service';
 
 @Controller('conversation-members')
+@ApiTags('Conversation members')
+@ApiBearerAuth('access-token')
 export class ConversationMembersController {
   constructor(
     private readonly conversationMembersService: ConversationMembersService,
   ) {}
 
   @Get(':conversationId')
+  @ApiEndpoint('List members of a conversation')
   list(
     @CurrentUser() user: AuthenticatedUser,
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
@@ -42,6 +50,7 @@ export class ConversationMembersController {
 
   @Post(':conversationId')
   @ResponseMessage('Member added')
+  @ApiCreatedEndpoint('Add a member to a conversation')
   add(
     @CurrentUser() user: AuthenticatedUser,
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
@@ -52,6 +61,7 @@ export class ConversationMembersController {
 
   @Patch(':conversationId/:userId')
   @ResponseMessage('Member updated')
+  @ApiEndpoint('Update a conversation member')
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('conversationId', ParseUUIDPipe) conversationId: string,
@@ -67,6 +77,7 @@ export class ConversationMembersController {
   }
 
   @Delete(':conversationId/:userId')
+  @ApiEndpoint('Remove a member from a conversation')
   remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param('conversationId', ParseUUIDPipe) conversationId: string,

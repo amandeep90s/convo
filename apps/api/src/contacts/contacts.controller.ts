@@ -9,7 +9,12 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+import {
+  ApiCreatedEndpoint,
+  ApiEndpoint,
+} from '@/common/decorators/api-endpoint.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
 import {
@@ -21,10 +26,13 @@ import type { AuthenticatedUser } from '@/common/types/authenticated-user';
 import { ContactsService } from '@/contacts/providers/contacts.service';
 
 @Controller('contacts')
+@ApiTags('Contacts')
+@ApiBearerAuth('access-token')
 export class ContactsController {
   constructor(private readonly contactsService: ContactsService) {}
 
   @Get()
+  @ApiEndpoint('List contacts')
   list(
     @CurrentUser() user: AuthenticatedUser,
     @Query() pagination: PaginationDto,
@@ -38,6 +46,7 @@ export class ContactsController {
 
   @Post()
   @ResponseMessage('Contact added')
+  @ApiCreatedEndpoint('Add a contact')
   add(@CurrentUser() user: AuthenticatedUser, @Body() body: CreateContactDto) {
     return this.contactsService.add(
       user.id,
@@ -48,6 +57,7 @@ export class ContactsController {
 
   @Patch(':contactUserId')
   @ResponseMessage('Contact updated')
+  @ApiEndpoint('Update a contact nickname')
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('contactUserId', ParseUUIDPipe) contactUserId: string,
@@ -57,6 +67,7 @@ export class ContactsController {
   }
 
   @Delete(':contactUserId')
+  @ApiEndpoint('Remove a contact')
   remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param('contactUserId', ParseUUIDPipe) contactUserId: string,
