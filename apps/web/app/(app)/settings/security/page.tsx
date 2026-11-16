@@ -1,3 +1,5 @@
+import { SessionManager } from '@/components/app/session-manager';
+
 export default function SecurityPage() {
-  return <div>Page</div>;
+  return <SessionManager />;
 }

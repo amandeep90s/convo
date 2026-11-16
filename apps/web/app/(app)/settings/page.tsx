@@ -1,3 +1,5 @@
+import { SettingsOverview } from '@/components/app/settings-overview';
+
 export default function SettingsPage() {
-  return <div>Page</div>;
+  return <SettingsOverview />;
 }

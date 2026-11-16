@@ -1,8 +1,7 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, LogOut, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -44,7 +43,6 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
 });
 
 export default function SearchPage() {
-  const router = useRouter();
   const [query, setQuery] = useState('');
   const [sender, setSender] = useState('');
   const [fromDate, setFromDate] = useState('');
@@ -59,7 +57,6 @@ export default function SearchPage() {
   const [error, setError] = useState<string | null>(null);
   const [requiresLogin, setRequiresLogin] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
 
   async function search(targetPage: number) {
     const searchTerm = query.trim();
@@ -135,34 +132,13 @@ export default function SearchPage() {
     await search(1);
   }
 
-  async function signOut() {
-    setIsSigningOut(true);
-    try {
-      const response = await fetch('/api/auth/logout', { method: 'POST' });
-      if (!response.ok) {
-        const payload = (await response.json()) as SearchResponse;
-        setError(payload.message ?? 'Could not sign out.');
-        return;
-      }
-      router.replace('/login');
-    } catch {
-      setError('Could not reach the sign-out service. Please try again.');
-    } finally {
-      setIsSigningOut(false);
-    }
-  }
-
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 sm:px-6">
-      <header className="flex items-start justify-between gap-4">
+      <header>
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Search messages</h1>
           <p className="mt-2 text-sm text-muted-foreground">Find messages across conversations you belong to.</p>
         </div>
-        <Button aria-label="Sign out" disabled={isSigningOut} onClick={signOut} type="button" variant="outline">
-          <LogOut aria-hidden="true" />
-          <span className="hidden sm:inline">{isSigningOut ? 'Signing out...' : 'Sign out'}</span>
-        </Button>
       </header>
 
       <Card>

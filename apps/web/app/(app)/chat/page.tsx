@@ -1,3 +1,5 @@
+import { ConversationList } from '@/components/app/conversation-list';
+
 export default function ChatPage() {
-  return <div>Page</div>;
+  return <ConversationList mode="recent" />;
 }

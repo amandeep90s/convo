@@ -22,6 +22,17 @@ export function jsonNoStore(body: unknown, init?: ResponseInit): NextResponse {
   return response;
 }
 
+export function isSameOriginRequest(request: Request): boolean {
+  const origin = request.headers.get('origin');
+  if (!origin) return true;
+
+  try {
+    return new URL(origin).origin === new URL(request.url).origin;
+  } catch {
+    return false;
+  }
+}
+
 export async function readApiPayload(response: Response): Promise<ApiPayload> {
   const body: unknown = await response.json();
   if (!isRecord(body)) throw new Error('The API returned an invalid response');

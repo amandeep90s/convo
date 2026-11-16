@@ -1,3 +1,5 @@
+import { AccountSettings } from '@/components/app/account-settings';
+
 export default function AccountPage() {
-  return <div>Page</div>;
+  return <AccountSettings />;
 }

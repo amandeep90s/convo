@@ -14,10 +14,12 @@ The schemas and routes describe the implemented API breadth; they do not mean ev
 
 ### UI
 
-- The home route renders the translated app title and theme/language toggles.
-- The app/auth route structure and many settings, chat, contact, call, and community pages exist.
-- Most of those pages still return placeholder content. There is no complete sign-in-to-chat user flow or visible app shell yet.
-- The web Playwright suite currently has a single home-page smoke test.
+- The home route includes product context and sign-in/register entry points. Register, email verification, password recovery, password login, and email OTP login use the same-origin auth routes.
+- Access and refresh credentials are held in HTTP-only cookies. Protected app routes require a session cookie; authenticated API traffic passes through the same-origin BFF, which refreshes and retries expired access tokens.
+- The responsive app shell provides navigation and sign-out. Chats include paginated conversation lists, archive/star actions, message history, text sending, and supported attachment upload/download. Contacts support people search, adding/removing contacts, and starting private conversations.
+- Group chats can be created and admins can add members. Communities can be created and viewed; admins can create invite links and signed-in users can join from an invite. Calls show session history and state controls, but the web client does not yet provide audio/video media transport.
+- Profile, account, privacy, notification, chat, appearance, language, security-session, and device screens use available API operations. Storage and media pages disclose API/UI limitations rather than presenting unsupported controls.
+- Message search is protected by the app layout and remains filterable by sender, date range, and attachment type. The Playwright suite covers the landing page, guest redirect, conversation loading/text sending, and search form/results; auth and attachment flows still need broader coverage.
 
 ### API and data
 
@@ -33,21 +35,20 @@ The schemas and routes describe the implemented API breadth; they do not mean ev
 
 Prioritize vertical, testable user flows rather than building every screen or endpoint independently.
 
-### UI work
+### Remaining UI work
 
-1. **Authentication and app shell**
-   - Build usable register, email verification, and recovery forms.
-   - Connect them to the API, handle validation/loading/error/success states, and establish protected routes and broader session handling.
-   - Add the signed-in navigation/layout shared by chats, contacts, calls, and settings.
-2. **Core messaging**
-   - Build the conversation list, direct conversation view, message composer, history loading, and empty/loading/error states.
-   - Integrate contacts and message delivery/read state; make the layout responsive and keyboard accessible.
-3. **Additional messaging features**
-   - Wire group/community creation and membership, invites, reactions, replies, pins, attachments, archive/starred views, and call experiences to the available API.
-4. **Account preferences**
-   - Connect profile, privacy, security, devices, notification, appearance, language, storage, and chat settings to persisted API settings.
+1. **Realtime experience**
+   - Add a scoped realtime credential flow or another safe Socket.IO authentication approach; do not expose long-lived access tokens to browser JavaScript.
+   - Subscribe to incoming messages, call state, presence, and read/delivery updates rather than relying on message polling.
+2. **Messaging features**
+   - Add reactions, replies, pins, message editing/deletion controls, read receipts, and richer attachment previews.
+   - Add community discovery and moderation/member-removal controls.
+3. **Calls**
+   - Implement and test audio/video media transport before presenting the existing call-session endpoints as a complete calling experience.
+4. **Account capability gaps**
+   - Add a storage usage/cleanup API before building storage controls; add email-change, device-enrollment, and notification-delivery flows if product requirements call for them.
 5. **UI validation**
-   - Add focused end-to-end coverage for signup/login, the primary chat flow, and major failure/empty states, plus responsive and accessibility checks.
+   - Add end-to-end coverage for auth, the primary chat and attachment flows, contacts, invite joining, settings persistence, and major API failure/empty states; add responsive and accessibility checks.
 
 ### API work
 

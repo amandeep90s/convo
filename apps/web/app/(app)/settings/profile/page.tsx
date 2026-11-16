@@ -1,3 +1,5 @@
+import { ProfileSettings } from '@/components/app/profile-settings';
+
 export default function ProfilePage() {
-  return <div>Page</div>;
+  return <ProfileSettings />;
 }

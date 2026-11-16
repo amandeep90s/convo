@@ -4,13 +4,18 @@ import {
   ACCESS_TOKEN_COOKIE,
   clearAuthCookies,
   getApiBaseUrl,
+  isSameOriginRequest,
   jsonNoStore,
   readApiPayload,
   REFRESH_TOKEN_COOKIE,
   refreshAuthSession,
 } from '@/lib/server/api';
 
-export async function POST() {
+export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return jsonNoStore({ success: false, statusCode: 403, message: 'Cross-origin request rejected' }, { status: 403 });
+  }
+
   const cookieStore = await cookies();
   const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
   const refreshToken = cookieStore.get(REFRESH_TOKEN_COOKIE)?.value;

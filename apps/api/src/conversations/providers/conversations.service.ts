@@ -33,7 +33,23 @@ export class ConversationsService {
       this.prisma.conversation.findMany({
         where,
         include: {
-          members: { where: { user_id: userId }, take: 1 },
+          members: {
+            where: { left_at: null },
+            select: {
+              user_id: true,
+              role: true,
+              archived_at: true,
+              starred_at: true,
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  name: true,
+                  avatar_url: true,
+                },
+              },
+            },
+          },
           messages: {
             where: {
               deleted_at: null,

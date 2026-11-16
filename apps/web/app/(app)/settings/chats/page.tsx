@@ -1,3 +1,5 @@
+import { PreferenceSettings } from '@/components/app/preference-settings';
+
 export default function ChatsPage() {
-  return <div>Page</div>;
+  return <PreferenceSettings section="chats" />;
 }
