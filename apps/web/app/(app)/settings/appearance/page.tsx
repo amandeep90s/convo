@@ -1,3 +1,5 @@
+import { PreferenceSettings } from '@/components/app/preference-settings';
+
 export default function AppearancePage() {
-  return <div>Page</div>;
+  return <PreferenceSettings section="appearance" />;
 }
