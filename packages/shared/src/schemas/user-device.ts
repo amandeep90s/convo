@@ -28,7 +28,6 @@ export const updateUserDeviceSchema = z.object({
   push_token: z.string().optional(),
   public_key: z.string().optional(),
   last_seen_at: z.coerce.date().optional(),
-  revoked_at: z.coerce.date().optional(),
 });
 
 // Types

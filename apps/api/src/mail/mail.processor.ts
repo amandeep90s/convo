@@ -17,6 +17,14 @@ export class MailProcessor extends WorkerHost {
         return this.mailService.send(
           this.mailService.getVerificationEmailOptions(job.data),
         );
+      case MAIL_JOB_NAMES.passwordResetEmail:
+        return this.mailService.send(
+          this.mailService.getPasswordResetEmailOptions(job.data),
+        );
+      case MAIL_JOB_NAMES.loginOtpEmail:
+        return this.mailService.send(
+          this.mailService.getLoginOtpEmailOptions(job.data),
+        );
       default:
         throw new Error(`Unsupported mail job: ${job.name}`);
     }

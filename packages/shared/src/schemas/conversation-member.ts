@@ -14,6 +14,7 @@ export const conversationMemberSchema = z.object({
   muted_until: z.coerce.date().nullable().optional(),
   notification_policy: notificationPolicySchema,
   archived_at: z.coerce.date().nullable().optional(),
+  starred_at: z.coerce.date().nullable().optional(),
   last_read_message_id: z.uuid().nullable().optional(),
   created_at: z.coerce.date(),
 });
@@ -29,6 +30,7 @@ export const updateConversationMemberSchema = z.object({
   muted_until: z.coerce.date().nullable().optional(),
   notification_policy: notificationPolicySchema.optional(),
   archived_at: z.coerce.date().nullable().optional(),
+  starred_at: z.coerce.date().nullable().optional(),
   last_read_message_id: z.uuid().optional(),
 });
 

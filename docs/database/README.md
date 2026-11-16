@@ -11,6 +11,8 @@ This directory documents the PostgreSQL tables represented by `packages/database
 | [user_devices](user-devices.md)                           | Registered devices and push-notification credentials |
 | [user_sessions](user-sessions.md)                         | Refresh-token sessions and session lifecycle         |
 | [email_verification_tokens](email-verification-tokens.md) | Single-use tokens for verifying registration emails  |
+| [password_resets](password-resets.md)                     | Hashed, expiring password reset tokens                |
+| [login_otps](login-otps.md)                               | Hashed, short-lived, one-time email login codes       |
 | [contacts](contacts.md)                                   | User-owned contact relationships                     |
 | [blocked_users](blocked-users.md)                         | User blocking relationships                          |
 | [conversations](conversations.md)                         | Private, group, and community conversation roots     |

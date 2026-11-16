@@ -7,11 +7,18 @@ import { ResendService } from 'nestjs-resend';
 
 import { MailTemplateService } from '@/mail/mail-template.service';
 import {
+  LOGIN_OTP_EMAIL_JOB_OPTIONS,
   MAIL_JOB_NAMES,
   MAIL_QUEUE_NAME,
+  PASSWORD_RESET_EMAIL_JOB_OPTIONS,
   VERIFICATION_EMAIL_JOB_OPTIONS,
 } from '@/mail/queues/mail.queue';
-import type { VerificationEmailJob } from '@/mail/types/mail.types';
+import type {
+  LoginOtpEmailJob,
+  MailJob,
+  PasswordResetEmailJob,
+  VerificationEmailJob,
+} from '@/mail/types/mail.types';
 
 @Injectable()
 export class MailService {
@@ -20,7 +27,7 @@ export class MailService {
     private readonly configService: ConfigService,
     private readonly mailTemplateService: MailTemplateService,
     @InjectQueue(MAIL_QUEUE_NAME)
-    private readonly mailQueue: Queue<VerificationEmailJob>,
+    private readonly mailQueue: Queue<MailJob>,
   ) {}
 
   send(options: CreateEmailOptions) {
@@ -48,6 +55,42 @@ export class MailService {
     );
   }
 
+  sendPasswordResetEmail(
+    recipientEmail: string,
+    recipientName: string,
+    token: string,
+  ) {
+    return this.mailQueue.add(
+      MAIL_JOB_NAMES.passwordResetEmail,
+      {
+        type: MAIL_JOB_NAMES.passwordResetEmail,
+        recipientEmail,
+        recipientName,
+        token,
+      },
+      PASSWORD_RESET_EMAIL_JOB_OPTIONS,
+    );
+  }
+
+  sendLoginOtpEmail(
+    recipientEmail: string,
+    recipientName: string,
+    code: string,
+    expiresIn: string,
+  ) {
+    return this.mailQueue.add(
+      MAIL_JOB_NAMES.loginOtpEmail,
+      {
+        type: MAIL_JOB_NAMES.loginOtpEmail,
+        recipientEmail,
+        recipientName,
+        code,
+        expiresIn,
+      },
+      LOGIN_OTP_EMAIL_JOB_OPTIONS,
+    );
+  }
+
   getVerificationEmailOptions(job: VerificationEmailJob): CreateEmailOptions {
     const verificationUrl = new URL(
       '/verify',
@@ -63,6 +106,38 @@ export class MailService {
         recipientName: job.recipientName,
         verificationUrl: verificationUrl.toString(),
         expiresIn: `${this.configService.getOrThrow<number>('mail.verificationTokenTtl')} minutes`,
+      }),
+    };
+  }
+
+  getPasswordResetEmailOptions(job: PasswordResetEmailJob): CreateEmailOptions {
+    const resetUrl = new URL(
+      '/reset-password',
+      this.configService.getOrThrow<string>('mail.webUrl'),
+    );
+    resetUrl.searchParams.set('token', job.token);
+
+    return {
+      from: this.configService.getOrThrow<string>('mail.from'),
+      to: job.recipientEmail,
+      subject: 'Reset your Convo password',
+      html: this.mailTemplateService.renderPasswordResetEmail({
+        recipientName: job.recipientName,
+        resetUrl: resetUrl.toString(),
+        expiresIn: '15 minutes',
+      }),
+    };
+  }
+
+  getLoginOtpEmailOptions(job: LoginOtpEmailJob): CreateEmailOptions {
+    return {
+      from: this.configService.getOrThrow<string>('mail.from'),
+      to: job.recipientEmail,
+      subject: 'Your Convo login code',
+      html: this.mailTemplateService.renderLoginOtpEmail({
+        recipientName: job.recipientName,
+        code: job.code,
+        expiresIn: job.expiresIn,
       }),
     };
   }

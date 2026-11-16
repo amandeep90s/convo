@@ -5,21 +5,24 @@ Convo is a monorepo for a real-time messaging application. It contains a Next.js
 ## Requirements
 
 - Node.js `20.19.0` or newer
-- pnpm `11.25.0` or newer
+- pnpm `12.3.4` (the version pinned in `package.json`)
 - PostgreSQL
 - Docker Desktop (optional, for local PostgreSQL and Redis)
 
-Install dependencies from the repository root:
+Node.js 22 is used in CI. Enable Corepack so it selects the pinned pnpm version, then install from the repository root:
 
 ```bash
-pnpm install
+corepack enable
+pnpm install --frozen-lockfile
 ```
 
-Copy the example environment file and configure your variables:
+Copy the example environment file to `.env` and configure your local values. In PowerShell:
 
 ```bash
-cp .env.example .env
+Copy-Item .env.example .env
 ```
+
+On macOS/Linux, use `cp .env.example .env`. Replace placeholder credentials before using email or OAuth features.
 
 To run PostgreSQL and Redis without using the default host ports, start the Docker services:
 
@@ -33,6 +36,12 @@ The services use host ports `55432` for PostgreSQL and `56379` for Redis. The de
 DATABASE_URL=postgresql://postgres:<POSTGRES_PASSWORD>@localhost:55432/convo_app?schema=public
 REDIS_HOST=localhost
 REDIS_PORT=56379
+```
+
+Apply the checked-in database migrations:
+
+```bash
+pnpm --dir packages/database db:migrate
 ```
 
 Stop the services with `docker compose down`. Add `-v` only when you also want to remove the persisted database and Redis data.
@@ -56,7 +65,7 @@ docs/
 
 ## Development
 
-Start the web app and API together:
+Start the web app and API together after configuring `.env`, starting the data services, and applying migrations:
 
 ```bash
 pnpm dev
@@ -70,6 +79,8 @@ Run one application independently:
 pnpm --dir apps/web dev
 pnpm --dir apps/api dev
 ```
+
+See [the product scope and development plan](docs/project-scope.md) for what is implemented and the outstanding UI/API work.
 
 ## Database
 

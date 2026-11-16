@@ -16,6 +16,15 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+export const requestLoginOtpSchema = z.object({
+  email: emailSchema,
+});
+
+export const verifyLoginOtpSchema = z.object({
+  email: emailSchema,
+  code: z.string().regex(/^\d{6}$/, 'Code must contain exactly 6 digits'),
+});
+
 export const registerSchema = z
   .object({
     name: z.string().trim().min(2, 'Name must be at least 2 characters long'),
@@ -57,10 +66,28 @@ export const resendVerificationSchema = z.object({
   email: emailSchema,
 });
 
+export const refreshSessionSchema = z.object({
+  refreshToken: z.string().min(1),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: emailSchema,
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: passwordSchema,
+});
+
 // Types
 export type LoginDto = z.infer<typeof loginSchema>;
+export type RequestLoginOtpDto = z.infer<typeof requestLoginOtpSchema>;
+export type VerifyLoginOtpDto = z.infer<typeof verifyLoginOtpSchema>;
 export type RegisterDto = z.infer<typeof registerSchema>;
 export type UserSummary = z.infer<typeof userSummarySchema>;
 export type AuthSession = z.infer<typeof authSessionSchema>;
 export type VerifyEmailDto = z.infer<typeof verifyEmailSchema>;
 export type ResendVerificationDto = z.infer<typeof resendVerificationSchema>;
+export type RefreshSessionDto = z.infer<typeof refreshSessionSchema>;
+export type ForgotPasswordDto = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordDto = z.infer<typeof resetPasswordSchema>;

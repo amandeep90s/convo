@@ -15,7 +15,9 @@ export const createGroupSchema = z.object({
 });
 
 export const updateGroupSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
   description: z.string().optional(),
+  avatar_url: z.url().nullable().optional(),
 });
 
 // Types
