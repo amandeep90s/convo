@@ -1,5 +1,6 @@
 'use client';
 
+import type { TUserDevice, TUserSession } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Smartphone } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
@@ -8,13 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiError, apiRequest } from '@/lib/client/api';
 
-type Device = {
-  id: string;
-  device_type: string;
-  device_name: string | null;
-  last_seen_at: string | null;
-  created_at: string;
-  sessions: Array<{ id: string; ip_address: string | null; created_at: string; expires_at: string }>;
+type Device = Pick<TUserDevice, 'id' | 'user_id' | 'device_type' | 'device_name' | 'last_seen_at' | 'created_at'> & {
+  sessions: Array<Pick<TUserSession, 'id' | 'ip_address' | 'created_at' | 'expires_at'>>;
 };
 
 export function DeviceManager() {
@@ -40,6 +36,7 @@ export function DeviceManager() {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
       <header>
+        <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">Account center</p>
         <h1 className="text-3xl font-semibold tracking-tight">Devices</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Review devices registered to your account and revoke access you no longer need.
@@ -93,7 +90,7 @@ function Status({ children, role }: { children: ReactNode; role?: 'alert' }) {
   );
 }
 
-function formatDate(value: string): string {
-  const date = new Date(value);
+function formatDate(value: string | Date): string {
+  const date = new Date(String(value));
   return Number.isNaN(date.getTime()) ? 'unknown time' : date.toLocaleString();
 }

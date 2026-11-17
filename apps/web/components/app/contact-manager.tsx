@@ -1,9 +1,13 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
+import type { CreateContactDto, TUser } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessageCircle, Search, UserPlus, UserRoundMinus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { type FormEvent, type ReactNode, useState } from 'react';
+import { type ReactNode, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,17 +15,24 @@ import { Input } from '@/components/ui/input';
 import { ApiError, apiRequest } from '@/lib/client/api';
 import { useCurrentUser } from '@/lib/client/use-current-user';
 
-type Person = { id: string; name: string; username: string; about: string | null; avatar_url: string | null };
+type Person = Pick<TUser, 'id' | 'name' | 'username' | 'about' | 'avatar_url'>;
 type Contact = { contact_user_id: string; nickname: string | null; contact_user: Person };
 type PageResponse<T> = { data: T[]; total: number };
+
+const contactSearchSchema = z.object({
+  query: z.string().trim().min(2, 'Enter at least 2 characters to search for people.').max(100),
+});
 
 export function ContactManager() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
-  const [searchText, setSearchText] = useState('');
   const [submittedSearch, setSubmittedSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const searchForm = useForm<z.input<typeof contactSearchSchema>, unknown, z.output<typeof contactSearchSchema>>({
+    resolver: zodResolver(contactSearchSchema),
+    defaultValues: { query: '' },
+  });
 
   const contacts = useQuery({
     queryKey: ['contacts'],
@@ -38,7 +49,7 @@ export function ContactManager() {
     retry: false,
   });
   const addContact = useMutation({
-    mutationFn: (userId: string) => apiRequest('contacts', { method: 'POST', body: { contact_user_id: userId } }),
+    mutationFn: (body: CreateContactDto) => apiRequest('contacts', { method: 'POST', body }),
     onSuccess: async () => {
       setError(null);
       await queryClient.invalidateQueries({ queryKey: ['contacts'] });
@@ -54,16 +65,9 @@ export function ContactManager() {
     onError: (reason) => setError(toMessage(reason, 'Could not remove this contact.')),
   });
 
-  function submitSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const term = searchText.trim();
-    if (term.length < 2) {
-      setError('Enter at least 2 characters to search for people.');
-      setSubmittedSearch('');
-      return;
-    }
+  function submitSearch({ query }: z.output<typeof contactSearchSchema>) {
     setError(null);
-    setSubmittedSearch(term);
+    setSubmittedSearch(query);
   }
 
   async function startConversation(personId: string) {
@@ -87,27 +91,39 @@ export function ContactManager() {
   const contactIds = new Set((contacts.data?.data ?? []).map(({ contact_user_id }) => contact_user_id));
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
-      <header>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-7">
+      <header className="rounded-[1.75rem] bg-gradient-to-br from-[#063f35] via-[#087e64] to-[#25a87e] px-6 py-7 text-white shadow-xl shadow-primary/15 sm:px-9 sm:py-9">
+        <p className="text-xs font-semibold tracking-[0.18em] text-emerald-50/80 uppercase">Your people</p>
         <h1 className="text-3xl font-semibold tracking-tight">Contacts</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Find people and start a private conversation.</p>
+        <p className="mt-2 text-sm text-emerald-50/85">Find people and start a private conversation.</p>
       </header>
 
       <Card>
         <CardContent>
-          <form className="flex flex-col gap-3 sm:flex-row" onSubmit={submitSearch}>
+          <form className="flex flex-col gap-3 sm:flex-row" onSubmit={searchForm.handleSubmit(submitSearch)}>
             <Input
               aria-label="Search people"
+              aria-invalid={Boolean(searchForm.formState.errors.query)}
+              aria-describedby={searchForm.formState.errors.query ? 'contact-search-error' : undefined}
+              className="h-11 rounded-xl bg-background/70 px-3"
               maxLength={100}
-              onChange={(event) => setSearchText(event.target.value)}
               placeholder="Search by name or username"
-              value={searchText}
+              {...searchForm.register('query')}
             />
-            <Button disabled={users.isFetching} type="submit">
+            <Button
+              className="h-11 shrink-0 rounded-xl bg-gradient-to-r from-[#087e64] to-[#12a178] px-5 font-semibold shadow-lg shadow-primary/15 hover:brightness-105"
+              disabled={users.isFetching}
+              type="submit"
+            >
               <Search aria-hidden="true" />
               {users.isFetching ? 'Searching…' : 'Find people'}
             </Button>
           </form>
+          {searchForm.formState.errors.query?.message && (
+            <p className="mt-2 text-xs font-medium text-destructive" id="contact-search-error">
+              {searchForm.formState.errors.query.message}
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -132,9 +148,9 @@ export function ContactManager() {
             users.data.data.map((person) => (
               <PersonCard
                 isContact={contactIds.has(person.id)}
-                isPending={addContact.isPending && addContact.variables === person.id}
+                isPending={addContact.isPending && addContact.variables?.contact_user_id === person.id}
                 key={person.id}
-                onAdd={() => addContact.mutate(person.id)}
+                onAdd={() => addContact.mutate({ contact_user_id: person.id })}
                 onMessage={() => void startConversation(person.id)}
                 person={person}
               />
@@ -154,7 +170,7 @@ export function ContactManager() {
         {contacts.isSuccess &&
           contacts.data.data.map(({ contact_user: person, nickname }) => (
             <Card key={person.id}>
-              <CardContent className="flex-row items-center justify-between gap-4">
+              <CardContent className="flex-row items-center justify-between gap-4 py-4">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{nickname || person.name}</p>
                   <p className="truncate text-sm text-muted-foreground">@{person.username}</p>
@@ -215,7 +231,7 @@ function PersonCard({
               Added
             </Button>
           ) : (
-            <Button disabled={isPending} onClick={onAdd} type="button" variant="outline">
+            <Button className="rounded-xl" disabled={isPending} onClick={onAdd} type="button" variant="outline">
               <UserPlus aria-hidden="true" />
               Add
             </Button>

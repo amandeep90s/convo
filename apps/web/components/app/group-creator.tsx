@@ -1,9 +1,13 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
+import { type CreateGroupDto, createGroupSchema } from '@repo/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useState } from 'react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import type { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,9 +21,12 @@ export function GroupCreator() {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const form = useForm<z.input<typeof createGroupSchema>, unknown, CreateGroupDto>({
+    resolver: zodResolver(createGroupSchema),
+    defaultValues: { name: '', description: '' },
+  });
   const createGroup = useMutation({
-    mutationFn: (body: { name: string; description: string }) =>
-      apiRequest<{ conversation_id: string }>('groups', { method: 'POST', body }),
+    mutationFn: (body: CreateGroupDto) => apiRequest<{ conversation_id: string }>('groups', { method: 'POST', body }),
     onSuccess: async ({ conversation_id }) => {
       await queryClient.invalidateQueries({ queryKey: ['conversations'] });
       router.push(`/chat/${conversation_id}`);
@@ -27,39 +34,49 @@ export function GroupCreator() {
     onError: (reason) => setError(reason instanceof ApiError ? reason.message : 'Could not create the group.'),
   });
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const name = String(formData.get('name') ?? '').trim();
-    if (!name) {
-      setError('Group name is required.');
-      return;
-    }
+  function submit(data: CreateGroupDto) {
     setError(null);
-    createGroup.mutate({ name, description: String(formData.get('description') ?? '').trim() });
+    createGroup.mutate(data);
   }
 
   return (
     <div className="relative">
-      <Button onClick={() => setIsOpen((open) => !open)} type="button" variant="outline">
+      <Button className="rounded-xl" onClick={() => setIsOpen((open) => !open)} type="button" variant="outline">
         <Plus aria-hidden="true" />
         {isOpen ? 'Cancel' : 'New group'}
       </Button>
       {isOpen && (
-        <Card className="absolute top-full right-0 z-10 mt-2 w-[min(90vw,28rem)] shadow-lg">
+        <Card className="absolute top-full right-0 z-10 mt-2 w-[min(85vw,20rem)] shadow-lg">
           <CardContent>
-            <form className="flex flex-col gap-4" onSubmit={submit}>
+            <form className="flex flex-col gap-4" onSubmit={form.handleSubmit(submit)}>
               <div className="flex items-center gap-2 font-medium">
                 <Users aria-hidden="true" className="size-4 text-primary" />
                 Create a group chat
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="group-name">Group name</Label>
-                <Input id="group-name" maxLength={100} name="name" required />
+                <Input
+                  aria-describedby={form.formState.errors.name ? 'group-name-error' : undefined}
+                  aria-invalid={Boolean(form.formState.errors.name)}
+                  className="h-11 rounded-xl bg-background/70 px-3"
+                  id="group-name"
+                  maxLength={100}
+                  {...form.register('name')}
+                />
+                {form.formState.errors.name?.message && (
+                  <p className="text-xs font-medium text-destructive" id="group-name-error">
+                    {form.formState.errors.name.message}
+                  </p>
+                )}
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="group-description">Description</Label>
-                <Textarea id="group-description" maxLength={1000} name="description" />
+                <Textarea
+                  className="min-h-24 rounded-xl bg-background/70 px-3 py-2.5"
+                  id="group-description"
+                  maxLength={1000}
+                  {...form.register('description')}
+                />
               </div>
               {error && (
                 <p className="text-sm text-destructive" role="alert">
@@ -67,7 +84,11 @@ export function GroupCreator() {
                 </p>
               )}
               <div>
-                <Button disabled={createGroup.isPending} type="submit">
+                <Button
+                  className="h-11 rounded-xl bg-gradient-to-r from-[#087e64] to-[#12a178] px-5 font-semibold shadow-lg shadow-primary/15 hover:brightness-105"
+                  disabled={createGroup.isPending}
+                  type="submit"
+                >
                   {createGroup.isPending ? 'Creating…' : 'Create group'}
                 </Button>
               </div>

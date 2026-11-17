@@ -1,17 +1,11 @@
 'use client';
 
+import type { TUser } from '@repo/shared';
 import { useQuery } from '@tanstack/react-query';
 
 import { apiRequest } from '@/lib/client/api';
 
-export type CurrentUser = {
-  id: string;
-  email: string;
-  username: string;
-  name: string;
-  about: string | null;
-  avatar_url: string | null;
-  status: string;
+export type CurrentUser = Pick<TUser, 'id' | 'email' | 'username' | 'name' | 'about' | 'avatar_url' | 'status'> & {
   email_verified_at: string | null;
 };
 

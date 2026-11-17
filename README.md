@@ -73,6 +73,8 @@ pnpm dev
 
 Open the web app at [http://localhost:3000](http://localhost:3000). The API listens at [http://localhost:3001](http://localhost:3001), unless `PORT` is set.
 
+The chat screen shows the conversation list alongside the selected chat on desktop and switches between them on mobile. The list search filters the conversations currently loaded (up to 50); use the main Search page to search messages.
+
 Run one application independently:
 
 ```bash

@@ -7,6 +7,7 @@ import { type ReactNode, useMemo } from 'react';
 
 import { MemberManager } from '@/components/app/member-manager';
 import { MessageComposer } from '@/components/app/message-composer';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { apiRequest } from '@/lib/client/api';
@@ -65,11 +66,26 @@ export function ConversationView({ conversationId }: { conversationId: string })
     (conversation.data?.type === 'private' ? 'Direct message' : 'Conversation');
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-9rem)] w-full max-w-5xl flex-col overflow-hidden rounded-xl border bg-background shadow-sm">
-      <header className="flex items-center gap-3 border-b px-4 py-3 md:px-6">
-        <Button aria-label="Back to conversations" render={<Link href="/chat" />} size="icon" variant="ghost">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background">
+      <header className="flex items-center gap-3 border-b bg-muted/50 px-4 py-3 md:px-6">
+        <Button
+          aria-label="Back to conversations"
+          className="md:hidden"
+          nativeButton={false}
+          render={<Link href="/chat" />}
+          size="icon"
+          variant="ghost"
+        >
           <ArrowLeft aria-hidden="true" />
         </Button>
+        <Avatar className="size-10">
+          {otherMember?.avatar_url && conversation.data?.type === 'private' && (
+            <AvatarImage alt="" src={otherMember.avatar_url} />
+          )}
+          <AvatarFallback className="bg-primary/10 font-semibold text-primary">
+            {title.charAt(0).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
         <div className="min-w-0 flex-1">
           <h1 className="truncate font-semibold">{conversation.isPending ? 'Loading conversation…' : title}</h1>
           <p className="truncate text-xs text-muted-foreground">
@@ -90,7 +106,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
       <section
         aria-label="Messages"
         aria-live="polite"
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-5 md:px-6"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#efeae2] px-4 py-5 md:px-10 dark:bg-[#0b141a]"
       >
         {messages.isPending && <Status>Loading messages…</Status>}
         {messages.isError && <Status role="alert">Could not load messages. {messages.error.message}</Status>}
@@ -116,7 +132,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
               return (
                 <article className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`} key={message.id}>
                   <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-2.5 sm:max-w-[70%] ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}
+                    className={`max-w-[85%] rounded-lg px-3 py-2 shadow-sm sm:max-w-[70%] ${isOwn ? 'rounded-tr-none bg-[#d9fdd3] text-[#172a1e] dark:bg-[#005c4b] dark:text-white' : 'rounded-tl-none bg-white text-foreground dark:bg-[#202c33]'}`}
                   >
                     {!isOwn && <p className="mb-1 text-xs font-medium">{message.sender.name}</p>}
                     <p className="text-sm break-words whitespace-pre-wrap">
@@ -127,7 +143,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
                         {message.attachments.map((attachment) => (
                           <li key={attachment.id}>
                             <a
-                              className={`text-xs underline underline-offset-2 ${isOwn ? 'text-primary-foreground' : 'text-primary'}`}
+                              className="text-xs underline underline-offset-2"
                               href={`/api/backend/message-attachments/${attachment.id}/file`}
                               rel="noreferrer"
                               target="_blank"
@@ -138,10 +154,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
                         ))}
                       </ul>
                     )}
-                    <time
-                      className={`mt-1 block text-right text-[11px] ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}
-                      dateTime={message.created_at}
-                    >
+                    <time className="mt-1 block text-right text-[11px] opacity-70" dateTime={message.created_at}>
                       {formatTime(message.created_at)}
                     </time>
                   </div>
@@ -157,7 +170,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
           Could not load this conversation. {conversation.error.message}
         </p>
       )}
-      <footer className="border-t p-3 md:p-4">
+      <footer className="border-t bg-muted/50 p-3 md:px-6">
         <MessageComposer conversationId={conversationId} disabled={conversation.isError || conversation.isPending} />
       </footer>
     </div>

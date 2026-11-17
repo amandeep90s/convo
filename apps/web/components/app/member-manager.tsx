@@ -1,25 +1,36 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
+import type { CreateConversationMemberDto, TUser } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserPlus, Users } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ApiError, apiRequest } from '@/lib/client/api';
 import { useCurrentUser } from '@/lib/client/use-current-user';
 
-type Person = { id: string; name: string; username: string; about?: string | null; avatar_url?: string | null };
+type Person = Pick<TUser, 'id' | 'name' | 'username' | 'about' | 'avatar_url'>;
 type Member = { user_id: string; role: string; user: Person };
 type SearchResponse = { data: Person[] };
+
+const memberSearchSchema = z.object({
+  query: z.string().trim().min(2, 'Enter at least 2 characters to search for people.').max(100),
+});
 
 export function MemberManager({ conversationId, members }: { conversationId: string; members: Member[] }) {
   const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
   const isAdmin = members.some(({ user_id, role }) => user_id === currentUser?.id && role === 'admin');
-  const [searchText, setSearchText] = useState('');
   const [submittedSearch, setSubmittedSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const form = useForm<z.input<typeof memberSearchSchema>, unknown, z.output<typeof memberSearchSchema>>({
+    resolver: zodResolver(memberSearchSchema),
+    defaultValues: { query: '' },
+  });
   const search = useQuery({
     queryKey: ['member-search', conversationId, submittedSearch],
     queryFn: () =>
@@ -28,33 +39,26 @@ export function MemberManager({ conversationId, members }: { conversationId: str
     retry: false,
   });
   const addMember = useMutation({
-    mutationFn: (userId: string) =>
-      apiRequest(`conversation-members/${conversationId}`, { method: 'POST', body: { user_id: userId } }),
+    mutationFn: (body: CreateConversationMemberDto) =>
+      apiRequest(`conversation-members/${conversationId}`, { method: 'POST', body }),
     onSuccess: async () => {
       setError(null);
       setSubmittedSearch('');
-      setSearchText('');
+      form.reset({ query: '' });
       await queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
     },
     onError: (reason) => setError(reason instanceof ApiError ? reason.message : 'Could not add this member.'),
   });
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const term = searchText.trim();
-    if (term.length < 2) {
-      setError('Enter at least 2 characters to search for people.');
-      setSubmittedSearch('');
-      return;
-    }
+  function submit({ query }: z.output<typeof memberSearchSchema>) {
     setError(null);
-    setSubmittedSearch(term);
+    setSubmittedSearch(query);
   }
 
   const memberIds = new Set(members.map(({ user_id }) => user_id));
 
   return (
-    <details className="rounded-lg border bg-background p-4">
+    <details className="rounded-2xl border border-border/70 bg-background/80 p-4 shadow-sm">
       <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium">
         <Users aria-hidden="true" className="size-4 text-primary" />
         Members ({members.length})
@@ -73,18 +77,25 @@ export function MemberManager({ conversationId, members }: { conversationId: str
       {isAdmin && (
         <div className="mt-4 border-t pt-4">
           <p className="mb-3 text-sm font-medium">Add a member</p>
-          <form className="flex gap-2" onSubmit={submit}>
+          <form className="flex flex-col gap-2 sm:flex-row" onSubmit={form.handleSubmit(submit)}>
             <Input
               aria-label="Search people to add"
+              aria-invalid={Boolean(form.formState.errors.query)}
+              aria-describedby={form.formState.errors.query ? 'member-search-error' : undefined}
+              className="h-10 rounded-xl bg-background/70 px-3"
               maxLength={100}
-              onChange={(event) => setSearchText(event.target.value)}
               placeholder="Name or username"
-              value={searchText}
+              {...form.register('query')}
             />
-            <Button disabled={search.isFetching} type="submit" variant="outline">
+            <Button className="h-10 shrink-0 rounded-xl" disabled={search.isFetching} type="submit" variant="outline">
               Search
             </Button>
           </form>
+          {form.formState.errors.query?.message && (
+            <p className="mt-2 text-xs font-medium text-destructive" id="member-search-error">
+              {form.formState.errors.query.message}
+            </p>
+          )}
           {error && (
             <p className="mt-2 text-sm text-destructive" role="alert">
               {error}
@@ -106,8 +117,8 @@ export function MemberManager({ conversationId, members }: { conversationId: str
                     </span>
                     <Button
                       aria-label={`Add ${person.name}`}
-                      disabled={addMember.isPending && addMember.variables === person.id}
-                      onClick={() => addMember.mutate(person.id)}
+                      disabled={addMember.isPending && addMember.variables?.user_id === person.id}
+                      onClick={() => addMember.mutate({ user_id: person.id })}
                       size="icon"
                       type="button"
                       variant="ghost"

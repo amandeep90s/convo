@@ -42,7 +42,12 @@ export function AccountSettings() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   Use the verified email flow to reset your password.
                 </p>
-                <Button className="mt-3" render={<Link href="/forgot-password" />} variant="outline">
+                <Button
+                  className="mt-3"
+                  nativeButton={false}
+                  render={<Link href="/forgot-password" />}
+                  variant="outline"
+                >
                   Reset password
                 </Button>
               </div>

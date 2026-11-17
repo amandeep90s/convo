@@ -125,7 +125,11 @@ export function CallView({ callId }: { callId: string }) {
                     End session
                   </Button>
                 )}
-                <Button render={<Link href={`/chat/${call.data.conversation_id}`} />} variant="outline">
+                <Button
+                  nativeButton={false}
+                  render={<Link href={`/chat/${call.data.conversation_id}`} />}
+                  variant="outline"
+                >
                   Open conversation
                 </Button>
               </div>
