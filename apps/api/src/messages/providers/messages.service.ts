@@ -4,13 +4,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@repo/db';
 import type {
   CreateMessageDto,
+  DeleteMessageParams,
   SearchMessagesParams,
   UpdateMessageDto,
 } from '@repo/shared';
+import { MESSAGE_EDIT_WINDOW_MS } from '@repo/shared';
 
+import { removeMessageFiles } from '@/common/message-files';
 import { ConversationAccessService } from '@/common/providers/conversation-access.service';
 import { PrismaService } from '@/prisma.service';
 import { RealtimeGateway } from '@/realtime/realtime.gateway';
@@ -21,6 +25,7 @@ export class MessagesService {
     private readonly prisma: PrismaService,
     private readonly access: ConversationAccessService,
     private readonly realtime: RealtimeGateway,
+    private readonly config: ConfigService,
   ) {}
 
   async list(
@@ -44,6 +49,7 @@ export class MessagesService {
       where: {
         conversation_id: conversationId,
         deleted_at: null,
+        hidden_for: { none: { user_id: userId } },
         OR: [{ expires_at: null }, { expires_at: { gt: now } }],
       },
       include: {
@@ -84,6 +90,7 @@ export class MessagesService {
     const where = {
       content: { contains: q, mode: 'insensitive' as const },
       deleted_at: null,
+      hidden_for: { none: { user_id: userId } },
       OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
       ...(conversationId ? { conversation_id: conversationId } : {}),
       ...(sender
@@ -154,6 +161,7 @@ export class MessagesService {
       where: {
         id: messageId,
         deleted_at: null,
+        hidden_for: { none: { user_id: userId } },
         OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
       },
       include: {
@@ -213,6 +221,7 @@ export class MessagesService {
           id: data.reply_to_id,
           conversation_id: data.conversation_id,
           deleted_at: null,
+          hidden_for: { none: { user_id: userId } },
           OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
         },
         select: { id: true },
@@ -223,6 +232,11 @@ export class MessagesService {
       throw new ForbiddenException('You are no longer a member');
 
     const message = await this.prisma.$transaction(async (transaction) => {
+      const active = await transaction.conversation.updateMany({
+        where: { id: data.conversation_id, deleted_at: null },
+        data: { updated_at: new Date() },
+      });
+      if (!active.count) throw new NotFoundException('Conversation not found');
       const created = await transaction.message.create({
         data: {
           conversation_id: data.conversation_id,
@@ -303,17 +317,43 @@ export class MessagesService {
       where: {
         id: messageId,
         deleted_at: null,
+        hidden_for: { none: { user_id: userId } },
         OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
       },
-      select: { id: true, sender_id: true, conversation_id: true },
+      select: {
+        id: true,
+        sender_id: true,
+        conversation_id: true,
+        created_at: true,
+        type: true,
+      },
     });
     if (!message) throw new NotFoundException('Message not found');
     await this.access.requireMember(message.conversation_id, userId);
     if (message.sender_id !== userId)
       throw new ForbiddenException('Only the sender can edit this message');
-    const updated = await this.prisma.message.update({
+    if (message.type !== 'text')
+      throw new ForbiddenException('Only text messages can be edited');
+    const now = new Date();
+    const result = await this.prisma.message.updateMany({
+      where: {
+        id: messageId,
+        sender_id: userId,
+        type: 'text',
+        deleted_at: null,
+        conversation: { deleted_at: null },
+        hidden_for: { none: { user_id: userId } },
+        created_at: { gt: new Date(now.getTime() - MESSAGE_EDIT_WINDOW_MS) },
+        OR: [{ expires_at: null }, { expires_at: { gt: now } }],
+      },
+      data: { content: data.content, edited_at: now },
+    });
+    if (!result.count)
+      throw new ForbiddenException(
+        'Messages can only be edited within 15 minutes of sending',
+      );
+    const updated = await this.prisma.message.findUniqueOrThrow({
       where: { id: messageId },
-      data: { content: data.content, edited_at: new Date() },
       include: {
         sender: {
           select: { id: true, username: true, name: true, avatar_url: true },
@@ -328,12 +368,20 @@ export class MessagesService {
     return updated;
   }
 
-  async remove(userId: string, messageId: string) {
+  async remove(
+    userId: string,
+    messageId: string,
+    scope: DeleteMessageParams['scope'] = 'everyone',
+  ) {
     const message = await this.prisma.message.findFirst({
       where: {
         id: messageId,
-        deleted_at: null,
-        OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
+        ...(scope === 'me'
+          ? {
+              deleted_at: null,
+              OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
+            }
+          : {}),
       },
       include: { conversation: { select: { id: true, type: true } } },
     });
@@ -342,6 +390,20 @@ export class MessagesService {
       message.conversation_id,
       userId,
     );
+    if (scope === 'me') {
+      await this.prisma.hiddenMessage.upsert({
+        where: {
+          message_id_user_id: { message_id: messageId, user_id: userId },
+        },
+        create: { message_id: messageId, user_id: userId },
+        update: {},
+      });
+      this.realtime.emitUserEvent(userId, 'message:deleted', {
+        id: messageId,
+        conversation_id: message.conversation_id,
+      });
+      return { deleted: true };
+    }
     if (
       message.sender_id !== userId &&
       !(message.conversation.type !== 'private' && membership.role === 'admin')
@@ -350,27 +412,84 @@ export class MessagesService {
     }
     const deletionKind =
       message.sender_id === userId ? 'sender' : 'group_admin';
-    const deleted = await this.prisma.message.update({
-      where: { id: messageId },
-      data: {
-        content: null,
-        metadata: Prisma.DbNull,
-        deleted_at: new Date(),
-        deleted_by_id: userId,
-        deletion_kind: deletionKind,
-      },
-      select: {
-        id: true,
-        conversation_id: true,
-        deleted_at: true,
-        deleted_by_id: true,
-        deletion_kind: true,
-      },
+    // Keep a redacted tombstone until file cleanup succeeds, so failures can be retried.
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.conversation.update({
+        where: { id: message.conversation_id },
+        data: { updated_at: new Date() },
+      });
+      await transaction.message.updateMany({
+        where: { id: messageId, deleted_at: null },
+        data: {
+          content: null,
+          metadata: Prisma.DbNull,
+          deleted_at: new Date(),
+          deleted_by_id: userId,
+          deletion_kind: deletionKind,
+        },
+      });
     });
     await this.realtime.emitConversationEvent(
       message.conversation_id,
       'message:deleted',
-      deleted,
+      { id: messageId },
+    );
+    const attachments = await this.prisma.messageAttachment.findMany({
+      where: { message_id: messageId },
+      select: { storage_key: true, thumbnail_key: true },
+    });
+    await removeMessageFiles(
+      this.config.getOrThrow<string>('app.uploadDir'),
+      attachments.flatMap(({ storage_key, thumbnail_key }) => [
+        storage_key,
+        thumbnail_key,
+      ]),
+    );
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.conversation.update({
+        where: { id: message.conversation_id },
+        data: { updated_at: new Date() },
+      });
+      const previous = await transaction.message.findFirst({
+        where: {
+          conversation_id: message.conversation_id,
+          OR: [
+            { created_at: { lt: message.created_at } },
+            { created_at: message.created_at, id: { lt: messageId } },
+          ],
+        },
+        orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+        select: { id: true },
+      });
+      await transaction.conversationMember.updateMany({
+        where: {
+          conversation_id: message.conversation_id,
+          last_read_message_id: messageId,
+        },
+        data: { last_read_message_id: previous?.id ?? null },
+      });
+      await transaction.message.deleteMany({ where: { id: messageId } });
+      const latest = await transaction.message.findFirst({
+        where: {
+          conversation_id: message.conversation_id,
+          deleted_at: null,
+          OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
+        },
+        orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+        select: { id: true, created_at: true },
+      });
+      await transaction.conversation.update({
+        where: { id: message.conversation_id },
+        data: {
+          last_message_id: latest?.id ?? null,
+          last_message_at: latest?.created_at ?? null,
+        },
+      });
+    });
+    await this.realtime.emitConversationEvent(
+      message.conversation_id,
+      'message:deleted',
+      { id: messageId },
     );
     return { deleted: true };
   }

@@ -36,7 +36,11 @@ export const createMessageSchema = z.object({
 });
 
 export const updateMessageSchema = z.object({
-  content: z.string().max(10000),
+  content: z.string().trim().min(1, 'Write a message before saving.').max(10000),
+});
+
+export const deleteMessageParamsSchema = z.object({
+  scope: z.enum(['me', 'everyone']).default('everyone'),
 });
 
 export const searchMessagesParamsSchema = paginationParamsSchema
@@ -130,6 +134,7 @@ export type MessageType = z.infer<typeof messageTypeSchema>;
 export type MessageDeletionKind = z.infer<typeof messageDeletionKindSchema>;
 export type CreateMessageDto = z.infer<typeof createMessageSchema>;
 export type UpdateMessageDto = z.infer<typeof updateMessageSchema>;
+export type DeleteMessageParams = z.infer<typeof deleteMessageParamsSchema>;
 export type SearchMessagesParams = z.infer<typeof searchMessagesParamsSchema>;
 export type DeleteMessageDto = z.infer<typeof deleteMessageSchema>;
 export type MessageAttachment = z.infer<typeof messageAttachmentSchema>;

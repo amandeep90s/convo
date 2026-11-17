@@ -1,6 +1,6 @@
 'use client';
 
-import type { RealtimeMessage } from '@repo/shared';
+import type { ConversationEvent, RealtimeMessage } from '@repo/shared';
 import {
   Archive,
   AudioLines,
@@ -26,7 +26,7 @@ import { NotificationBell, type NotificationItem } from '@/components/app/notifi
 import { RealtimeUpdates } from '@/components/app/realtime-updates';
 import { LanguageToggle } from '@/components/core/language-toggle';
 import { ThemeToggle } from '@/components/core/theme-toggle';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useUiText } from '@/i18n/ui-text';
 import { useCurrentUser } from '@/lib/client/use-current-user';
@@ -62,6 +62,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const receiveNotification = useCallback((message: RealtimeMessage) => {
     setNotifications((items) =>
       items.some((item) => item.message.id === message.id) ? items : [{ message, read: false }, ...items].slice(0, 50),
+    );
+  }, []);
+  const removeNotification = useCallback((event: ConversationEvent & { id?: string }) => {
+    setNotifications((items) =>
+      items.filter(({ message }) =>
+        event.id ? message.id !== event.id : message.conversation_id !== event.conversation_id,
+      ),
     );
   }, []);
   const pathname = usePathname();
@@ -106,7 +113,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="hidden min-w-0 flex-1 items-center gap-3 rounded-xl p-1 transition-colors hover:bg-muted lg:flex"
                 href="/settings/profile"
               >
-                <UserAvatar name={user?.name} isPending={isPending} isError={isError} />
+                <UserAvatar name={user?.name} avatarUrl={user?.avatar_url} isPending={isPending} isError={isError} />
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium">
                     {isPending
@@ -128,7 +135,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <RealtimeUpdates onNotification={receiveNotification} />
+          <RealtimeUpdates onNotification={receiveNotification} onContentRemoved={removeNotification} />
           <header className="relative z-20 flex min-h-16 shrink-0 items-center justify-between border-b border-border/70 bg-background/85 px-3 backdrop-blur-xl sm:px-5 lg:px-7">
             <div className="flex min-w-0 items-center gap-3">
               <div className="md:hidden">
@@ -158,7 +165,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="flex min-w-0 items-center gap-2 rounded-full transition-colors hover:bg-muted sm:rounded-2xl sm:py-1 sm:pr-3 sm:pl-1"
                 href="/settings/profile"
               >
-                <UserAvatar name={user?.name} isPending={isPending} isError={isError} />
+                <UserAvatar name={user?.name} avatarUrl={user?.avatar_url} isPending={isPending} isError={isError} />
                 <span className="hidden max-w-36 truncate text-sm font-medium sm:block">
                   {isPending
                     ? text('Loading…')
@@ -302,10 +309,21 @@ function MobileNavigation({ pathname }: { pathname: string }) {
   );
 }
 
-function UserAvatar({ name, isPending, isError }: { name?: string; isPending: boolean; isError: boolean }) {
+function UserAvatar({
+  name,
+  avatarUrl,
+  isPending,
+  isError,
+}: {
+  name?: string;
+  avatarUrl?: string | null;
+  isPending: boolean;
+  isError: boolean;
+}) {
   const initials = isPending || isError ? 'C' : name?.trim().charAt(0).toUpperCase() || 'C';
   return (
     <Avatar className="size-9 border border-white/70 bg-gradient-to-br from-emerald-100 to-teal-200 text-primary dark:border-white/10 dark:from-emerald-950 dark:to-teal-900">
+      <AvatarImage alt="" src={avatarUrl ?? undefined} />
       <AvatarFallback className="bg-transparent font-semibold text-primary">{initials}</AvatarFallback>
     </Avatar>
   );

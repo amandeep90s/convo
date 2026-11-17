@@ -15,6 +15,7 @@ import {
   createPrivateConversationSchema,
   createUserDeviceSchema,
   createUserSettingsSchema,
+  deleteMessageParamsSchema,
   paginationParamsSchema,
   searchMessagesParamsSchema,
   updateCallParticipantSchema,
@@ -37,6 +38,9 @@ export class SearchMessagesDto extends createZodDto(
   searchMessagesParamsSchema,
 ) {}
 export class UpdateMessageDto extends createZodDto(updateMessageSchema) {}
+export class DeleteMessageParamsDto extends createZodDto(
+  deleteMessageParamsSchema,
+) {}
 export class CreateConversationDto extends createZodDto(
   createConversationSchema,
 ) {}

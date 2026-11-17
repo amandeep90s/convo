@@ -24,6 +24,7 @@ export class MessageReceiptsService {
           conversation_id: conversationId,
           sender_id: userId,
           deleted_at: null,
+          hidden_for: { none: { user_id: userId } },
           OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
         },
       },
@@ -85,6 +86,7 @@ export class MessageReceiptsService {
       SET last_read_message_id = ${messageId}::uuid
       WHERE member.conversation_id = ${message.conversation_id}::uuid
         AND member.user_id = ${userId}::uuid
+        AND EXISTS (SELECT 1 FROM messages WHERE id = ${messageId}::uuid)
         AND NOT EXISTS (
           SELECT 1 FROM messages AS current_message, messages AS candidate
           WHERE current_message.id = member.last_read_message_id

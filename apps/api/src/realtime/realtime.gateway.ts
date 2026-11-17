@@ -110,6 +110,10 @@ export class RealtimeGateway
           where: { contact_user_id: viewerId },
           select: { contact_user_id: true },
         },
+        contacted_by: {
+          where: { user_id: viewerId },
+          select: { user_id: true },
+        },
         blocked_users: {
           where: { blocked_user_id: viewerId },
           select: { user_id: true },
@@ -123,7 +127,8 @@ export class RealtimeGateway
       return (
         user.id === viewerId ||
         visibility === 'everyone' ||
-        (visibility === 'contacts' && user.contacts.length > 0)
+        (visibility === 'contacts' &&
+          (user.contacts.length > 0 || user.contacted_by.length > 0))
       );
     });
     if (!visible.length) return result;
@@ -158,6 +163,7 @@ export class RealtimeGateway
         select: {
           settings: { select: { online_visibility: true } },
           contacts: { select: { contact_user_id: true } },
+          contacted_by: { select: { user_id: true } },
           blocked_users: { select: { blocked_user_id: true } },
           blocked_by: { select: { user_id: true } },
         },
@@ -165,9 +171,10 @@ export class RealtimeGateway
       if (!user) return;
       const visibility = user.settings?.online_visibility ?? 'contacts';
       if (visibility === 'nobody') return;
-      const contacts = new Set(
-        user.contacts.map(({ contact_user_id }) => contact_user_id),
-      );
+      const contacts = new Set([
+        ...user.contacts.map(({ contact_user_id }) => contact_user_id),
+        ...user.contacted_by.map(({ user_id }) => user_id),
+      ]);
       const blocked = new Set([
         ...user.blocked_users.map(({ blocked_user_id }) => blocked_user_id),
         ...user.blocked_by.map(({ user_id }) => user_id),

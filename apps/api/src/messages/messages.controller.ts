@@ -19,6 +19,7 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
 import {
   CreateMessageDto,
+  DeleteMessageParamsDto,
   SearchMessagesDto,
   UpdateMessageDto,
 } from '@/common/dtos/api.dto';
@@ -92,7 +93,8 @@ export class MessagesController {
   remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param('messageId', ParseUUIDPipe) messageId: string,
+    @Query() query: DeleteMessageParamsDto,
   ) {
-    return this.messagesService.remove(user.id, messageId);
+    return this.messagesService.remove(user.id, messageId, query.scope);
   }
 }

@@ -49,6 +49,7 @@ Successful verification returns an `accessToken`, `refreshToken`, `expiresAt`, a
 | --- | --- | --- |
 | GET | `/conversations?page=&limit=&archived=&starred=` | List active memberships with last-message previews; optional `true` filters |
 | GET / PATCH / DELETE | `/conversations/:conversationId` | Read, admin-update, or leave a conversation (private chats are archived) |
+| DELETE | `/conversations/:conversationId/everyone` | Remove the chat and all history for everyone; private participants or group admins only |
 | POST / DELETE | `/conversations/:conversationId/archive` | Archive or unarchive the current membership |
 | POST / DELETE | `/conversations/:conversationId/star` | Star or unstar the current membership |
 | POST / GET | `/private-conversations` and `/private-conversations/:conversationId` | Create or read a one-to-one conversation |
@@ -63,14 +64,14 @@ Group/community creation makes the creator an admin. Membership and admin checks
 
 ## Messages and conversation features
 
-Conversation lists include `unread_count` per membership, excluding own, deleted, expired, pre-membership, and already-read messages. Counts use `last_read_message_id`, independent of read-receipt sharing. List and detail member users include `presence: "online" | "offline" | null` for private-chat peers. `null` means privacy-hidden or unavailable, not offline. Presence honors the subject's `online_visibility`, their contacts, and blocks in either direction, and requires a connected socket with a valid user/device session.
+Conversation lists include `unread_count` per membership, excluding own, deleted, expired, pre-membership, and already-read messages. Counts use `last_read_message_id`, independent of read-receipt sharing. List and detail member users include `presence: "online" | "offline" | null` for private-chat peers. `null` means privacy-hidden or unavailable, not offline. Presence honors the subject's `online_visibility` and blocks in either direction, and requires a connected socket with a valid user/device session. For `contacts` visibility, a contact saved in either direction qualifies both peers to see each other's status; `nobody` continues to hide the subject's status regardless of contacts.
 
 | Method | Route | Purpose |
 | --- | --- | --- |
 | GET | `/messages?conversationId=&cursor=&limit=` | Read a cursor-paginated message history |
 | GET | `/messages/search?q=&conversationId=&sender=&from=&to=&attachmentType=&page=&limit=` | Search active messages in conversations the user belongs to; `q` is 2–100 characters, `sender` matches name or username, dates are inclusive ISO timestamps, and attachment type is image/video/audio/document |
 | POST | `/messages` | Send a message (supports replies and expiration) |
-| GET / PATCH / DELETE | `/messages/:messageId` | Read, edit as sender, or delete as sender/admin |
+| GET / PATCH / DELETE | `/messages/:messageId` | Read, edit own text within 15 minutes, or delete as sender/admin; DELETE accepts `scope=me` or `scope=everyone` (default) |
 | GET / POST / DELETE | `/message-reactions/:messageId` | List, add/change, or remove the current user's reaction |
 | GET | `/message-receipts?conversationId=` | Read receipts for the current user's sent messages |
 | POST / PATCH | `/message-receipts/:messageId/delivered` and `/read` | Record delivery/read status |
@@ -82,6 +83,10 @@ Conversation lists include `unread_count` per membership, excluding own, deleted
 | DELETE | `/message-attachments/:attachmentId` | Remove an attachment |
 
 Uploads currently use the local filesystem under `UPLOAD_DIR` (default: repository-root `uploads`). Download responses stream the file directly rather than using the JSON response envelope. Use durable object storage before deploying multiple API instances or relying on local disk persistence.
+
+`DELETE /messages/:messageId?scope=me` persists a `hidden_messages` record for the authenticated member. The message is excluded from that account's history, direct reads, search, pins, previews, attachment reads and unread counts, but remains visible to other members. Only that account's sockets receive `message:deleted`. `scope=everyone` preserves sender/group-admin permissions and permanently deletes the message row, cascading receipts, reactions, pins, attachments and hiding records. Reply references become null. Stored attachment/thumbnail files are unlinked; missing files are already considered removed. Other file errors fail the request, retaining a redacted tombstone and file references for retrying the same DELETE. Read cursors are moved to the immediate predecessor, and the conversation's latest-message fields are recomputed. Deletion is broadcast after redaction and again after successful cleanup. This does not erase backups or previously downloaded copies. Whole-chat deletion retains its separate soft-deletion behavior. PATCH accepts nonblank text up to 10,000 characters; ownership, text type and the strict less-than-15-minute deadline are checked by the API, not just the UI.
+
+Whole-chat deletion soft-deletes the conversation and clears message contents/metadata; members can no longer read or send messages or download its attachments. Membership rows remain for deletion-event delivery. The private pair mapping is removed so starting another chat creates an empty conversation. File bytes and soft-deleted records are retained; this is not physical storage erasure. Apply migration `20261117110000_add_hidden_messages` and regenerate Prisma before deploying this API.
 
 The web app's same-origin `/api/auth/login`, `/api/auth/logout`, and `/api/messages/search` handlers keep API access and refresh tokens in HTTP-only cookies. Configure `API_BASE_URL` for the server-side API origin; the default is `http://localhost:3001/api/v1`.
 
@@ -110,6 +115,8 @@ Client events:
 Server events include `conversation:updated`, `message:created`, `message:updated`, `message:deleted`, `message:attachment`, `message:reaction`, `message:receipt`, `call:incoming`, `call:updated`, and relayed `call:signal`. Conversation-scoped events include `conversation_id`.
 
 The payload-less `presence:updated` event invalidates list/detail presence snapshots when a peer connects or disconnects. It is sent only to privacy-authorized private-chat peers. Snapshots check all connected sessions across the Redis adapter, so closing one tab does not mark a user offline while another remains connected. Clients also poll to recover from missed events, privacy changes, and session expiry.
+
+`message:updated` and `message:deleted` include `id` and `conversation_id`. Clients refresh history/previews and remove stale message alerts. `conversation:deleted` includes `conversation_id` and reaches all active members; clients evict that chat's cached detail/history, remove its alerts and navigate away if it is open.
 
 `message:notification` is sent separately to recipients with account notifications enabled, no active mute, and conversation policy `all`. `none` and `mentions_only` suppress generic alerts; mention detection is not implemented. Notification preferences never suppress message delivery. The web app shows in-app alerts outside the visible conversation and browser alerts for hidden tabs after the user grants permission in notification settings. Closed-browser/offline Web Push delivery is not implemented.
 
