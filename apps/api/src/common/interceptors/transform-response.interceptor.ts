@@ -14,14 +14,15 @@ import { RESPONSE_MESSAGE_KEY } from '@/common/decorators/response-message.decor
 @Injectable()
 export class TransformResponseInterceptor<T> implements NestInterceptor<
   T,
-  IApiSuccessResponse<T>
+  IApiSuccessResponse<T> | T
 > {
   constructor(private readonly reflector: Reflector) {}
 
   intercept(
     context: ExecutionContext,
     next: CallHandler<T>,
-  ): Observable<IApiSuccessResponse<T>> {
+  ): Observable<IApiSuccessResponse<T> | T> {
+    if (context.getType() !== 'http') return next.handle();
     const http = context.switchToHttp();
     const request = http.getRequest<Request>();
     const response = http.getResponse<Response>();

@@ -1,7 +1,9 @@
-import { Logger, OnModuleDestroy } from '@nestjs/common';
+import { Logger, OnModuleDestroy, UseFilters } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { SkipThrottle } from '@nestjs/throttler';
 import {
+  BaseWsExceptionFilter,
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
@@ -12,6 +14,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import type { UserPresence } from '@repo/shared';
+import { typingEventSchema } from '@repo/shared';
 import { createAdapter } from '@socket.io/redis-adapter';
 import Redis from 'ioredis';
 import type { Server, Socket } from 'socket.io';
@@ -20,7 +23,13 @@ import { ConversationAccessService } from '@/common/providers/conversation-acces
 import { PrismaService } from '@/prisma.service';
 
 type AuthenticatedSocket = Socket & {
-  data: { userId?: string; sessionId?: string };
+  data: {
+    userId?: string;
+    sessionId?: string;
+    lastTypingAt?: number;
+    lastTypingConversationId?: string;
+    lastTyping?: boolean;
+  };
 };
 
 type CallSignal = {
@@ -30,6 +39,8 @@ type CallSignal = {
   payload: unknown;
 };
 
+@SkipThrottle()
+@UseFilters(new BaseWsExceptionFilter())
 @WebSocketGateway({
   cors: {
     origin: (origin, callback) => {
@@ -222,6 +233,69 @@ export class RealtimeGateway
     await this.access.requireMember(conversationId, client.data.userId);
     await client.join(this.conversationRoom(conversationId));
     return { ok: true };
+  }
+
+  @SubscribeMessage('conversation:typing')
+  async typing(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() body: unknown,
+  ) {
+    try {
+      const event = typingEventSchema.parse(body);
+      const { userId, sessionId } = client.data;
+      if (!userId || !sessionId)
+        throw new Error('Unauthenticated typing event');
+      const now = Date.now();
+      if (
+        client.data.lastTypingConversationId === event.conversation_id &&
+        client.data.lastTyping === event.typing &&
+        now - (client.data.lastTypingAt ?? 0) < (event.typing ? 1000 : 100)
+      )
+        return { ok: true };
+      client.data.lastTypingAt = now;
+      client.data.lastTypingConversationId = event.conversation_id;
+      client.data.lastTyping = event.typing;
+      const session = await this.prisma.userSession.findFirst({
+        where: {
+          id: sessionId,
+          user_id: userId,
+          revoked_at: null,
+          expires_at: { gt: new Date() },
+          device: { revoked_at: null },
+          user: { status: 'active', deleted_at: null },
+        },
+        select: { id: true },
+      });
+      if (!session) throw new Error('Typing session expired');
+      await this.access.requireMember(event.conversation_id, userId);
+      const conversation = await this.prisma.conversation.findUniqueOrThrow({
+        where: { id: event.conversation_id },
+        select: {
+          type: true,
+          members: {
+            where: { left_at: null, user_id: { not: userId } },
+            select: { user_id: true },
+          },
+        },
+      });
+      if (conversation.type === 'private' && conversation.members[0]) {
+        await this.access.assertNotBlocked(
+          userId,
+          conversation.members[0].user_id,
+        );
+      }
+      if (conversation.members.length) {
+        this.server
+          .to(conversation.members.map(({ user_id }) => this.userRoom(user_id)))
+          .emit('conversation:typing', { ...event, user_id: userId });
+      }
+      return { ok: true };
+    } catch (reason) {
+      this.logger.warn(
+        reason instanceof Error ? reason.message : 'Typing event rejected',
+      );
+      return { ok: false };
+    }
   }
 
   @SubscribeMessage('conversation:leave')

@@ -47,7 +47,7 @@ Successful verification returns an `accessToken`, `refreshToken`, `expiresAt`, a
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| GET | `/conversations?page=&limit=&archived=&starred=` | List active memberships with last-message previews; optional `true` filters |
+| GET | `/conversations?page=&limit=&q=&archived=&starred=` | List active memberships with last-message previews; server-side name/participant search and optional `true` filters |
 | GET / PATCH / DELETE | `/conversations/:conversationId` | Read, admin-update, or leave a conversation (private chats are archived) |
 | DELETE | `/conversations/:conversationId/everyone` | Remove the chat and all history for everyone; private participants or group admins only |
 | POST / DELETE | `/conversations/:conversationId/archive` | Archive or unarchive the current membership |
@@ -61,6 +61,8 @@ Successful verification returns an `accessToken`, `refreshToken`, `expiresAt`, a
 | PATCH / DELETE | `/conversation-members/:conversationId/:userId` | Update or remove a member |
 
 Group/community creation makes the creator an admin. Membership and admin checks are enforced at the API boundary.
+
+Conversation search `q` is trimmed and limited to 100 characters. It matches conversation names or other active participants' names/usernames case-insensitively, within the current membership/archive/star filters. Pagination returns `data`, `page`, `limit`, `total`, and `totalPages`, ordered by latest-message time (empty chats last), creation time, then ID. The web client loads additional pages rather than limiting access to the first 50 conversations.
 
 ## Messages and conversation features
 
@@ -78,11 +80,18 @@ Conversation lists include `unread_count` per membership, excluding own, deleted
 | GET | `/pinned-messages?conversationId=` | List pinned messages |
 | POST / DELETE | `/pinned-messages` and `/pinned-messages/:messageId` | Pin or unpin a message |
 | GET | `/message-attachments?messageId=` | List attachment metadata |
+| POST | `/message-attachments/conversations/:conversationId/upload` | Store one supported file and atomically create its message/attachment before publishing events (multipart `file`, 1 byte–20 MB); returns the created message |
 | POST | `/message-attachments/upload/:messageId` | Upload one supported file (multipart field `file`, maximum 20 MB) |
 | GET | `/message-attachments/:attachmentId/file` | Download an attachment |
 | DELETE | `/message-attachments/:attachmentId` | Remove an attachment |
 
 Uploads currently use the local filesystem under `UPLOAD_DIR` (default: repository-root `uploads`). Download responses stream the file directly rather than using the JSON response envelope. Use durable object storage before deploying multiple API instances or relying on local disk persistence.
+
+Message history and direct reads include `reply`, a minimal `{id, type, content, sender: {id, name}}` preview or null. Originals hidden for the viewer, expired, deleted or no longer accessible are omitted. `reply_to_id` is validated within the same conversation for sending text or attachments. Upload-and-send accepts the optional multipart `reply_to_id` UUID. The first history page also includes `firstUnreadId`, computed from the member's read cursor and join date, not receipt visibility; subsequent pages omit it. History ordering includes ID as a timestamp tie-breaker.
+
+Pins retain the existing member-level permissions: active members may pin or unpin. Changes emit `message:pinned` with `id` and `conversation_id`. Reactions remain one emoji per user/message, replaced by POST or removed by DELETE; reaction updates emit `message:reaction`.
+
+The upload-and-send route derives the message type from the accepted MIME type and uses the sanitized filename as content. It applies the normal membership/block checks and creates the message, attachment metadata, receipts and preview together in the message transaction after file storage succeeds. Failures before commit clean up the new file and publish no message events. Once committed, realtime errors do not remove the file backing a saved message. The legacy upload-to-existing-message route retains its original behavior; the web composer no longer creates messages before uploading.
 
 `DELETE /messages/:messageId?scope=me` persists a `hidden_messages` record for the authenticated member. The message is excluded from that account's history, direct reads, search, pins, previews, attachment reads and unread counts, but remains visible to other members. Only that account's sockets receive `message:deleted`. `scope=everyone` preserves sender/group-admin permissions and permanently deletes the message row, cascading receipts, reactions, pins, attachments and hiding records. Reply references become null. Stored attachment/thumbnail files are unlinked; missing files are already considered removed. Other file errors fail the request, retaining a redacted tombstone and file references for retrying the same DELETE. Read cursors are moved to the immediate predecessor, and the conversation's latest-message fields are recomputed. Deletion is broadcast after redaction and again after successful cleanup. This does not erase backups or previously downloaded copies. Whole-chat deletion retains its separate soft-deletion behavior. PATCH accepts nonblank text up to 10,000 characters; ownership, text type and the strict less-than-15-minute deadline are checked by the API, not just the UI.
 
@@ -100,6 +109,8 @@ The web app's same-origin `/api/auth/login`, `/api/auth/logout`, and `/api/messa
 | POST / PATCH | `/call-participants/:callId/join` and `/leave` | Join or leave a call |
 
 ## Socket.IO
+
+Clients may emit `conversation:typing` with `{conversation_id, typing}` and an acknowledgement callback receiving `{ok}`. The API validates the payload and current session/membership, checks blocks for private peers, and emits `{conversation_id, user_id, typing}` only to other active members' user rooms. Socket handlers use handshake identity and current session checks rather than HTTP bearer headers; their acknowledgements are not wrapped in the HTTP response envelope. The gateway bypasses the HTTP throttler and uses its per-socket typing throttle, and gateway exceptions use the WebSocket exception filter. Duplicate updates are throttled per socket; start/stop transitions are delivered immediately. No typed text is transmitted. Clients expire typing state after six seconds without renewal and clear it on disconnect. Rejected events are logged and acknowledged with `ok: false`. Missing or invalid acknowledgements surface an error after five seconds and allow a later typing update to retry.
 
 The web app obtains a 60-second, socket-only connection ticket through authenticated `POST /realtime/session` (proxied by `/api/backend/realtime/session`). Connect to the API Socket.IO server with the ticket as `auth.token`. HTTP API access tokens are also accepted for non-browser clients; socket tickets cannot authenticate HTTP API requests. Each reconnect obtains a fresh ticket. The server uses Redis for its Socket.IO adapter.
 

@@ -8,7 +8,7 @@ import {
   updateMessageSchema,
 } from '@repo/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Pencil, Pin, PinOff, Reply, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -38,11 +38,15 @@ export function MessageActions({
   conversationId,
   own,
   canDeleteForEveryone,
+  onReply,
+  pinned,
 }: {
   message: ActionMessage;
   conversationId: string;
   own: boolean;
   canDeleteForEveryone: boolean;
+  onReply: () => void;
+  pinned: boolean;
 }) {
   const text = useUiText();
   const queryClient = useQueryClient();
@@ -82,9 +86,28 @@ export function MessageActions({
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['messages', conversationId] }),
         queryClient.invalidateQueries({ queryKey: ['conversations'] }),
+        queryClient.invalidateQueries({ queryKey: ['pinned-messages', conversationId] }),
+        queryClient.invalidateQueries({ queryKey: ['message-preview', conversationId] }),
       ]);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : text('Message changed, but the chat could not refresh.'));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function togglePin() {
+    if (pending) return;
+    setPending(true);
+    setError(null);
+    try {
+      await apiRequest(pinned ? `pinned-messages/${message.id}` : 'pinned-messages', {
+        method: pinned ? 'DELETE' : 'POST',
+        ...(!pinned ? { body: { message_id: message.id } } : {}),
+      });
+      await queryClient.invalidateQueries({ queryKey: ['pinned-messages', conversationId] });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : text('Could not update pinned messages.'));
     } finally {
       setPending(false);
     }
@@ -107,6 +130,14 @@ export function MessageActions({
           }
         />
         <DropdownMenuContent align="end" className="min-w-44 rounded-xl">
+          <DropdownMenuItem onClick={onReply}>
+            <Reply aria-hidden="true" />
+            {text('Reply')}
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={pending} onClick={() => void togglePin()}>
+            {pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}
+            {pinned ? text('Unpin message') : text('Pin message')}
+          </DropdownMenuItem>
           {canEdit && (
             <DropdownMenuItem
               onClick={() => {

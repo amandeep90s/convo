@@ -1,13 +1,13 @@
 'use client';
 
-import type { ConversationListItem } from '@repo/shared';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ConversationListResponse } from '@repo/shared';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, ArchiveRestore, MessageCircle, MoreHorizontal, Search, Star, StarOff, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLocale } from 'next-intl';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { DeleteChatDialog } from '@/components/app/delete-chat-dialog';
 import { GroupCreator } from '@/components/app/group-creator';
@@ -26,7 +26,6 @@ import { ApiError, apiRequest } from '@/lib/client/api';
 import { useCurrentUser } from '@/lib/client/use-current-user';
 
 type ConversationMode = 'recent' | 'archived' | 'starred';
-type ConversationListResponse = { data: ConversationListItem[]; total: number };
 
 const viewCopy: Record<ConversationMode, { title: string; description: string; empty: string }> = {
   recent: {
@@ -55,28 +54,32 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
   const [deletingChat, setDeletingChat] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const pathname = usePathname();
   const copy = viewCopy[mode];
-  const query = useQuery({
-    queryKey: ['conversations', mode],
-    queryFn: () => {
-      const params = new URLSearchParams({ page: '1', limit: '50' });
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchTerm(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+  const query = useInfiniteQuery({
+    queryKey: ['conversations', mode, searchTerm],
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({ page: String(pageParam), limit: '50' });
+      if (searchTerm) params.set('q', searchTerm);
       if (mode === 'archived') params.set('archived', 'true');
       if (mode === 'starred') params.set('starred', 'true');
       return apiRequest<ConversationListResponse>(`conversations?${params}`);
     },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
     retry: false,
     refetchInterval: 30000,
   });
-  const filteredConversations =
-    query.data?.data.filter((conversation) => {
-      const term = search.trim().toLowerCase();
-      if (!term) return true;
-      const participant = user ? conversation.members.find((member) => member.user_id !== user.id)?.user : undefined;
-      return [conversation.name, participant?.name, participant?.username].some((value) =>
-        value?.toLowerCase().includes(term),
-      );
-    }) ?? [];
+  const conversations = [
+    ...new Map(
+      query.data?.pages.flatMap((page) => page.data).map((conversation) => [conversation.id, conversation]),
+    ).values(),
+  ];
 
   async function updateConversation(id: string, action: 'archive' | 'restore' | 'star' | 'unstar') {
     setActionId(id);
@@ -127,6 +130,7 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
           className="border-0 bg-muted pl-9 shadow-none"
           onChange={(event) => setSearch(event.target.value)}
           placeholder={text('Search conversations')}
+          maxLength={100}
           value={search}
         />
       </div>
@@ -144,13 +148,23 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
       {query.isError && (
         <ListMessage role="alert">
           {text('Could not load conversations.')} {text(query.error.message)}
+          <Button
+            className="mt-3"
+            disabled={query.isFetching}
+            onClick={() => void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch())}
+            variant="outline"
+          >
+            {text('Try again')}
+          </Button>
         </ListMessage>
       )}
-      {query.isSuccess && query.data.data.length === 0 && <ListMessage>{text(copy.empty)}</ListMessage>}
+      {query.isSuccess && conversations.length === 0 && (
+        <ListMessage>{text(searchTerm ? 'No conversations match your search.' : copy.empty)}</ListMessage>
+      )}
 
-      {query.isSuccess && query.data.data.length > 0 && (
+      {conversations.length > 0 && (
         <section aria-label={text(copy.title)} className="min-h-0 overflow-y-auto">
-          {filteredConversations.map((conversation) => {
+          {conversations.map((conversation) => {
             const ownMembership = conversation.members.find((member) => member.user_id === user?.id);
             const participant = user
               ? conversation.members.find((member) => member.user_id !== user.id)?.user
@@ -260,8 +274,12 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
               </div>
             );
           })}
-          {filteredConversations.length === 0 && (
-            <ListMessage>{text('No conversations match your search.')}</ListMessage>
+          {query.hasNextPage && (
+            <div className="p-4 text-center">
+              <Button disabled={query.isFetching} onClick={() => void query.fetchNextPage()} variant="outline">
+                {query.isFetchingNextPage ? text('Loading…') : text('Load more conversations')}
+              </Button>
+            </div>
           )}
         </section>
       )}

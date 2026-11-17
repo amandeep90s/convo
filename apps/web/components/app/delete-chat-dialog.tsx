@@ -38,6 +38,8 @@ export function DeleteChatDialog({ conversationId, onClose }: { conversationId: 
     }
     queryClient.removeQueries({ queryKey: ['messages', conversationId] });
     queryClient.removeQueries({ queryKey: ['conversation', conversationId] });
+    queryClient.removeQueries({ queryKey: ['pinned-messages', conversationId] });
+    queryClient.removeQueries({ queryKey: ['message-preview', conversationId] });
     if (pathname === `/chat/${conversationId}`) router.replace('/chat');
     try {
       await queryClient.invalidateQueries({ queryKey: ['conversations'] });

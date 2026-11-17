@@ -2,6 +2,7 @@ import { pipeline } from 'node:stream/promises';
 
 import {
   BadRequestException,
+  Body,
   Controller,
   Delete,
   Get,
@@ -31,6 +32,7 @@ import {
 } from '@/common/decorators/api-endpoint.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
+import { AttachmentMessageOptionsDto } from '@/common/dtos/api.dto';
 import type { AuthenticatedUser } from '@/common/types/authenticated-user';
 import {
   MessageAttachmentsService,
@@ -50,6 +52,42 @@ export class MessageAttachmentsController {
     @Query('messageId', ParseUUIDPipe) messageId: string,
   ) {
     return this.attachmentsService.list(user.id, messageId);
+  }
+
+  @Post('conversations/:conversationId/upload')
+  @ApiCreatedEndpoint(
+    'Upload a file and send its message after storage completes',
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        reply_to_id: { type: 'string', format: 'uuid' },
+      },
+      required: ['file'],
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 20 * 1024 * 1024, files: 1 },
+    }),
+  )
+  @ResponseMessage('Attachment message sent')
+  uploadToConversation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+    @UploadedFile() file: UploadedMessageFile,
+    @Body() options: AttachmentMessageOptionsDto,
+  ) {
+    if (!file) throw new BadRequestException('A file is required');
+    return this.attachmentsService.uploadToConversation(
+      user.id,
+      conversationId,
+      file,
+      options.reply_to_id,
+    );
   }
 
   @Post('upload/:messageId')

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { CONVERSATION_TYPES } from '../constants/conversation.js';
+import { paginationParamsSchema } from './common.js';
 
 export const conversationTypeSchema = z.enum(CONVERSATION_TYPES);
 
@@ -31,8 +32,13 @@ export const updateConversationSchema = z.object({
   disappearing_message_ttl_seconds: z.number().int().positive().nullable().optional(),
 });
 
+export const listConversationsParamsSchema = paginationParamsSchema.extend({
+  q: z.string().trim().max(100).optional(),
+});
+
 // Types
 export type Conversation = z.infer<typeof conversationSchema>;
 export type ConversationType = z.infer<typeof conversationTypeSchema>;
 export type CreateConversationDto = z.infer<typeof createConversationSchema>;
 export type UpdateConversationDto = z.infer<typeof updateConversationSchema>;
+export type ListConversationsParams = z.infer<typeof listConversationsParamsSchema>;

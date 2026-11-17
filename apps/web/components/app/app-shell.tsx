@@ -20,13 +20,14 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useCallback, useState } from 'react';
 
+import { ChatActivityProvider } from '@/components/app/chat-activity';
 import { ConversationList } from '@/components/app/conversation-list';
 import { LogoutButton } from '@/components/app/logout-button';
 import { NotificationBell, type NotificationItem } from '@/components/app/notification-bell';
 import { RealtimeUpdates } from '@/components/app/realtime-updates';
 import { LanguageToggle } from '@/components/core/language-toggle';
 import { ThemeToggle } from '@/components/core/theme-toggle';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useUiText } from '@/i18n/ui-text';
 import { useCurrentUser } from '@/lib/client/use-current-user';
@@ -57,6 +58,14 @@ const settingsNavigation = [
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <ChatActivityProvider>
+      <AppShellContent>{children}</AppShellContent>
+    </ChatActivityProvider>
+  );
+}
+
+function AppShellContent({ children }: { children: ReactNode }) {
   const text = useUiText();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const receiveNotification = useCallback((message: RealtimeMessage) => {
@@ -113,7 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="hidden min-w-0 flex-1 items-center gap-3 rounded-xl p-1 transition-colors hover:bg-muted lg:flex"
                 href="/settings/profile"
               >
-                <UserAvatar name={user?.name} avatarUrl={user?.avatar_url} isPending={isPending} isError={isError} />
+                <UserAvatar name={user?.name} isPending={isPending} isError={isError} />
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium">
                     {isPending
@@ -165,7 +174,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="flex min-w-0 items-center gap-2 rounded-full transition-colors hover:bg-muted sm:rounded-2xl sm:py-1 sm:pr-3 sm:pl-1"
                 href="/settings/profile"
               >
-                <UserAvatar name={user?.name} avatarUrl={user?.avatar_url} isPending={isPending} isError={isError} />
+                <UserAvatar name={user?.name} isPending={isPending} isError={isError} />
                 <span className="hidden max-w-36 truncate text-sm font-medium sm:block">
                   {isPending
                     ? text('Loading…')
@@ -309,21 +318,10 @@ function MobileNavigation({ pathname }: { pathname: string }) {
   );
 }
 
-function UserAvatar({
-  name,
-  avatarUrl,
-  isPending,
-  isError,
-}: {
-  name?: string;
-  avatarUrl?: string | null;
-  isPending: boolean;
-  isError: boolean;
-}) {
+function UserAvatar({ name, isPending, isError }: { name?: string; isPending: boolean; isError: boolean }) {
   const initials = isPending || isError ? 'C' : name?.trim().charAt(0).toUpperCase() || 'C';
   return (
     <Avatar className="size-9 border border-white/70 bg-gradient-to-br from-emerald-100 to-teal-200 text-primary dark:border-white/10 dark:from-emerald-950 dark:to-teal-900">
-      <AvatarImage alt="" src={avatarUrl ?? undefined} />
       <AvatarFallback className="bg-transparent font-semibold text-primary">{initials}</AvatarFallback>
     </Avatar>
   );

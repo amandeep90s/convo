@@ -22,6 +22,14 @@ export type ConversationListItem = Pick<TConversation, 'id' | 'name' | 'type'> &
   messages: Array<Pick<TMessage, 'id' | 'type' | 'content'> & { created_at: string }>;
 };
 
+export type ConversationListResponse = {
+  data: ConversationListItem[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
 export type TConversation = {
   id: string;
   type: EConversationType;
