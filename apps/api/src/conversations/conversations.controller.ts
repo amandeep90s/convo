@@ -105,6 +105,16 @@ export class ConversationsController {
     return this.conversationsService.star(user.id, conversationId, false);
   }
 
+  @Delete(':conversationId/everyone')
+  @ResponseMessage('Chat deleted for everyone')
+  @ApiEndpoint('Delete a private chat or admin-managed group for everyone')
+  removeForEveryone(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('conversationId', ParseUUIDPipe) conversationId: string,
+  ) {
+    return this.conversationsService.removeForEveryone(user.id, conversationId);
+  }
+
   @Delete(':conversationId')
   @ApiEndpoint('Leave a conversation')
   leave(

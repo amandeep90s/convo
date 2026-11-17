@@ -36,6 +36,7 @@ model User {
     sent_messages               Message[]             @relation("MessageSender")
     message_reactions           MessageReaction[]
     message_receipts            MessageReceipt[]
+    hidden_messages             HiddenMessage[]
     initiated_calls             Call[]                @relation("CallInitiator")
     call_participations         CallParticipant[]
     private_conversations_a     PrivateConversation[] @relation("PrivateConversationUserA")
@@ -270,6 +271,7 @@ model Message {
     attachments  MessageAttachment[]
     reactions    MessageReaction[]
     receipts     MessageReceipt[]
+    hidden_for   HiddenMessage[]
     pins         PinnedMessage[]
 
     @@index([conversation_id, created_at])
@@ -277,6 +279,19 @@ model Message {
     @@index([reply_to_id])
     @@index([expires_at])
     @@map("messages")
+}
+
+model HiddenMessage {
+    message_id String   @db.Uuid
+    user_id    String   @db.Uuid
+    created_at DateTime @default(now()) @db.Timestamptz(6)
+
+    message Message @relation(fields: [message_id], references: [id], onDelete: Cascade)
+    user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+    @@id([message_id, user_id])
+    @@index([user_id])
+    @@map("hidden_messages")
 }
 
 model GroupInvite {

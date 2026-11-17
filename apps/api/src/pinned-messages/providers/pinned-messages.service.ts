@@ -17,6 +17,7 @@ export class PinnedMessagesService {
         conversation_id: conversationId,
         message: {
           deleted_at: null,
+          hidden_for: { none: { user_id: userId } },
           OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
         },
       },
@@ -44,6 +45,7 @@ export class PinnedMessagesService {
       where: {
         id: messageId,
         deleted_at: null,
+        hidden_for: { none: { user_id: userId } },
         OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
       },
       select: { id: true, conversation_id: true },

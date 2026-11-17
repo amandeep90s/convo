@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { removeMessageFiles } from '@/common/message-files';
 import { ConversationAccessService } from '@/common/providers/conversation-access.service';
 import { PrismaService } from '@/prisma.service';
 import { RealtimeGateway } from '@/realtime/realtime.gateway';
@@ -53,6 +54,7 @@ export class MessageAttachmentsService {
       where: {
         id: messageId,
         deleted_at: null,
+        hidden_for: { none: { user_id: userId } },
         OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
       },
       select: { conversation_id: true },
@@ -110,25 +112,40 @@ export class MessageAttachmentsService {
     const storageKey = `${randomUUID()}${extension}`;
     const filePath = path.join(this.uploadDir, storageKey);
     await writeFile(filePath, file.buffer, { flag: 'wx' });
-    const attachment = await this.prisma.messageAttachment
-      .create({
-        data: {
-          message_id: messageId,
-          type: typeForMime(file.mimetype),
-          storage_key: storageKey,
-          mime_type: file.mimetype,
-          file_name: path.basename(file.originalname).slice(0, 255),
-          file_size: BigInt(file.size),
-        },
-        select: {
-          id: true,
-          message_id: true,
-          type: true,
-          mime_type: true,
-          file_name: true,
-          file_size: true,
-          created_at: true,
-        },
+    const attachment = await this.prisma
+      .$transaction(async (transaction) => {
+        await transaction.conversation.update({
+          where: { id: message.conversation_id },
+          data: { updated_at: new Date() },
+        });
+        const active = await transaction.message.findFirst({
+          where: {
+            id: messageId,
+            deleted_at: null,
+            conversation: { deleted_at: null },
+          },
+          select: { id: true },
+        });
+        if (!active) throw new NotFoundException('Message not found');
+        return transaction.messageAttachment.create({
+          data: {
+            message_id: messageId,
+            type: typeForMime(file.mimetype),
+            storage_key: storageKey,
+            mime_type: file.mimetype,
+            file_name: path.basename(file.originalname).slice(0, 255),
+            file_size: BigInt(file.size),
+          },
+          select: {
+            id: true,
+            message_id: true,
+            type: true,
+            mime_type: true,
+            file_name: true,
+            file_size: true,
+            created_at: true,
+          },
+        });
       })
       .catch(async (error: unknown) => {
         await unlink(filePath);
@@ -147,13 +164,22 @@ export class MessageAttachmentsService {
       where: { id: attachmentId },
       include: {
         message: {
-          select: { conversation_id: true, deleted_at: true, expires_at: true },
+          select: {
+            conversation_id: true,
+            deleted_at: true,
+            expires_at: true,
+            hidden_for: {
+              where: { user_id: userId },
+              select: { user_id: true },
+            },
+          },
         },
       },
     });
     if (
       !attachment ||
       attachment.message.deleted_at ||
+      attachment.message.hidden_for.length > 0 ||
       (attachment.message.expires_at &&
         attachment.message.expires_at <= new Date())
     ) {
@@ -207,14 +233,13 @@ export class MessageAttachmentsService {
     if (attachment.message.sender_id !== userId && member.role !== 'admin') {
       throw new ForbiddenException('You cannot remove this attachment');
     }
-    await this.prisma.messageAttachment.delete({ where: { id: attachmentId } });
-    if (path.basename(attachment.storage_key) === attachment.storage_key) {
-      await unlink(path.join(this.uploadDir, attachment.storage_key)).catch(
-        (error: NodeJS.ErrnoException) => {
-          if (error.code !== 'ENOENT') throw error;
-        },
-      );
-    }
+    await removeMessageFiles(this.uploadDir, [
+      attachment.storage_key,
+      attachment.thumbnail_key,
+    ]);
+    await this.prisma.messageAttachment.deleteMany({
+      where: { id: attachmentId },
+    });
     await this.realtime.emitConversationEvent(
       attachment.message.conversation_id,
       'message:attachment',

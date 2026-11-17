@@ -2,18 +2,19 @@
 
 import type { UserPresence } from '@repo/shared';
 
+import { AvatarBadge } from '@/components/ui/avatar';
 import { useUiText } from '@/i18n/ui-text';
 
 export function PresenceStatus({ presence }: { presence: UserPresence }) {
   const text = useUiText();
   if (!presence) return null;
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground" data-presence={presence}>
-      <span
-        aria-hidden="true"
-        className={`size-1.5 rounded-full ${presence === 'online' ? 'bg-emerald-500' : 'bg-muted-foreground/50'}`}
-      />
-      {text(presence === 'online' ? 'Online' : 'Offline')}
-    </span>
+    <AvatarBadge
+      role="img"
+      aria-label={text(presence === 'online' ? 'Online' : 'Offline')}
+      title={text(presence === 'online' ? 'Online' : 'Offline')}
+      className={presence === 'online' ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-slate-500'}
+      data-presence={presence}
+    />
   );
 }

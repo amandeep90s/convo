@@ -2,17 +2,24 @@
 
 import type { ConversationListItem } from '@repo/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, ArchiveRestore, MessageCircle, Search, Star, StarOff } from 'lucide-react';
+import { Archive, ArchiveRestore, MessageCircle, MoreHorizontal, Search, Star, StarOff, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLocale } from 'next-intl';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 
+import { DeleteChatDialog } from '@/components/app/delete-chat-dialog';
 import { GroupCreator } from '@/components/app/group-creator';
 import { PresenceStatus } from '@/components/app/presence-status';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useUiText } from '@/i18n/ui-text';
 import { ApiError, apiRequest } from '@/lib/client/api';
@@ -45,6 +52,7 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
   const { data: user } = useCurrentUser();
   const queryClient = useQueryClient();
   const [actionId, setActionId] = useState<string | null>(null);
+  const [deletingChat, setDeletingChat] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const pathname = usePathname();
@@ -131,6 +139,7 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
           {text(error)}
         </p>
       )}
+      {deletingChat && <DeleteChatDialog conversationId={deletingChat} onClose={() => setDeletingChat(null)} />}
       {query.isPending && <ListMessage>{text('Loading conversations…')}</ListMessage>}
       {query.isError && (
         <ListMessage role="alert">
@@ -155,11 +164,11 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
             const archived = Boolean(ownMembership?.archived_at);
             return (
               <div
-                className={`flex items-center gap-1 px-3 transition-colors hover:bg-muted/70 ${pathname === `/chat/${conversation.id}` ? 'bg-muted' : ''}`}
+                className={`relative px-3 transition-colors hover:bg-muted/70 ${pathname === `/chat/${conversation.id}` ? 'bg-muted' : ''}`}
                 key={conversation.id}
               >
                 <Link
-                  className="flex min-w-0 flex-1 items-center gap-3 rounded-sm py-3 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  className="flex min-w-0 items-center gap-3 rounded-sm py-3 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   href={`/chat/${conversation.id}`}
                 >
                   <Avatar className="size-12">
@@ -169,56 +178,85 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
                     <AvatarFallback className="bg-primary/10 font-semibold text-primary">
                       {title.charAt(0).toUpperCase()}
                     </AvatarFallback>
+                    {conversation.type === 'private' && <PresenceStatus presence={participant?.presence ?? null} />}
                   </Avatar>
-                  <span className="min-w-0 flex-1">
+                  <span className="min-w-0 flex-1 pr-9">
                     <span className="flex items-center justify-between gap-2">
-                      <span className="truncate font-medium">{title}</span>
+                      <span className={`truncate ${conversation.unread_count > 0 ? 'font-semibold' : 'font-medium'}`}>
+                        {title}
+                      </span>
                       {message && (
-                        <time className="shrink-0 text-xs text-muted-foreground" dateTime={message.created_at}>
+                        <time
+                          className={`shrink-0 text-[11px] tabular-nums ${conversation.unread_count > 0 ? 'font-medium text-primary' : 'text-muted-foreground'}`}
+                          dateTime={message.created_at}
+                        >
                           {formatDate(message.created_at, locale)}
                         </time>
                       )}
                     </span>
-                    {conversation.type === 'private' && <PresenceStatus presence={participant?.presence ?? null} />}
-                    <span className="mt-1 flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                    <span className="mt-1 flex min-h-6 items-center justify-between gap-2 text-sm text-muted-foreground">
                       <span className="truncate">
                         {message?.content || (message ? text('Attachment or shared content') : text('No messages yet'))}
                       </span>
-                      {conversation.unread_count > 0 && (
-                        <span
-                          aria-label={text('{count, plural, one {# unread message} other {# unread messages}}', {
-                            count: conversation.unread_count,
-                          })}
-                          className="min-w-5 shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-center text-xs font-semibold text-primary-foreground"
-                        >
-                          {new Intl.NumberFormat(locale).format(conversation.unread_count)}
-                        </span>
-                      )}
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        {starred && (
+                          <Star
+                            aria-label={text('Starred conversations')}
+                            className="size-3 fill-current text-amber-500"
+                          />
+                        )}
+                        {conversation.unread_count > 0 && (
+                          <span
+                            aria-label={text('{count, plural, one {# unread message} other {# unread messages}}', {
+                              count: conversation.unread_count,
+                            })}
+                            className="min-w-5 shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-center text-xs font-semibold text-primary-foreground"
+                          >
+                            {new Intl.NumberFormat(locale).format(conversation.unread_count)}
+                          </span>
+                        )}
+                      </span>
                     </span>
                   </span>
                 </Link>
-                <div className="flex shrink-0 items-center">
-                  <Button
-                    aria-label={starred ? text('Unstar conversation') : text('Star conversation')}
-                    disabled={actionId === conversation.id}
-                    onClick={() => void updateConversation(conversation.id, starred ? 'unstar' : 'star')}
-                    size="icon-sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    {starred ? <StarOff aria-hidden="true" /> : <Star aria-hidden="true" />}
-                  </Button>
-                  <Button
-                    aria-label={archived ? text('Restore conversation') : text('Archive conversation')}
-                    disabled={actionId === conversation.id}
-                    onClick={() => void updateConversation(conversation.id, archived ? 'restore' : 'archive')}
-                    size="icon-sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    {archived ? <ArchiveRestore aria-hidden="true" /> : <Archive aria-hidden="true" />}
-                  </Button>
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        aria-label={text('Conversation actions')}
+                        className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full text-muted-foreground"
+                        disabled={actionId === conversation.id}
+                        size="icon-sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <MoreHorizontal aria-hidden="true" />
+                      </Button>
+                    }
+                  />
+                  <DropdownMenuContent align="end" className="min-w-48 rounded-xl">
+                    {(conversation.type === 'private' || ownMembership?.role === 'admin') && (
+                      <DropdownMenuItem variant="destructive" onClick={() => setDeletingChat(conversation.id)}>
+                        <Trash2 aria-hidden="true" />
+                        {text('Delete chat')}
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem
+                      disabled={actionId === conversation.id}
+                      onClick={() => void updateConversation(conversation.id, starred ? 'unstar' : 'star')}
+                    >
+                      {starred ? <StarOff aria-hidden="true" /> : <Star aria-hidden="true" />}
+                      {starred ? text('Unstar conversation') : text('Star conversation')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={actionId === conversation.id}
+                      onClick={() => void updateConversation(conversation.id, archived ? 'restore' : 'archive')}
+                    >
+                      {archived ? <ArchiveRestore aria-hidden="true" /> : <Archive aria-hidden="true" />}
+                      {archived ? text('Restore conversation') : text('Archive conversation')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             );
           })}

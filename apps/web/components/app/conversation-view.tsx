@@ -2,12 +2,14 @@
 
 import type { ChatParticipant, TMessageReceipt } from '@repo/shared';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowLeft, Check, CheckCheck } from 'lucide-react';
+import { ArrowDown, ArrowLeft, Check, CheckCheck, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
+import { DeleteChatDialog } from '@/components/app/delete-chat-dialog';
 import { MemberManager } from '@/components/app/member-manager';
+import { MessageActions } from '@/components/app/message-actions';
 import { MessageComposer } from '@/components/app/message-composer';
 import { PresenceStatus } from '@/components/app/presence-status';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -30,6 +32,7 @@ type Message = {
   type: string;
   content: string | null;
   created_at: string;
+  edited_at?: string | null;
   sender: Omit<ChatParticipant, 'presence'>;
   attachments: Array<{ id: string; file_name: string | null; mime_type: string }>;
   receipts: TMessageReceipt[];
@@ -43,8 +46,12 @@ export function ConversationView({ conversationId }: { conversationId: string })
   const { data: currentUser } = useCurrentUser();
   const [isVisible, setIsVisible] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
+  const [deletingChat, setDeletingChat] = useState(false);
   const acknowledged = useRef(new Set<string>());
   const receiptQueue = useRef(Promise.resolve());
+  const messageViewport = useRef<HTMLElement>(null);
+  const nearBottom = useRef(true);
+  const previousLatest = useRef<{ conversationId: string; messageId: string | undefined } | null>(null);
 
   useEffect(() => {
     const updateVisibility = () => setIsVisible(document.visibilityState === 'visible');
@@ -75,6 +82,20 @@ export function ConversationView({ conversationId }: { conversationId: string })
     () => messages.data?.pages.flatMap((page) => page.items).reverse() ?? [],
     [messages.data],
   );
+  useLayoutEffect(() => {
+    if (!messages.isSuccess) return;
+    const viewport = messageViewport.current;
+    if (!viewport) return;
+    const latest = orderedMessages.at(-1);
+    const initialLoad = previousLatest.current?.conversationId !== conversationId;
+    const newMessage = latest?.id !== previousLatest.current?.messageId;
+    if (initialLoad || (newMessage && (nearBottom.current || latest?.sender_id === currentUser?.id))) {
+      viewport.scrollTop = viewport.scrollHeight;
+      nearBottom.current = true;
+    }
+    previousLatest.current = { conversationId, messageId: latest?.id };
+  }, [conversationId, currentUser?.id, messages.isSuccess, orderedMessages]);
+
   useEffect(() => {
     if (!isVisible || !currentUser) return;
     const unread = orderedMessages.filter((message) => {
@@ -110,6 +131,9 @@ export function ConversationView({ conversationId }: { conversationId: string })
   const otherMember = currentUser
     ? conversation.data?.members.find(({ user_id }) => user_id !== currentUser.id)?.user
     : undefined;
+  const isAdmin = conversation.data?.members.some(
+    ({ user_id, role }) => user_id === currentUser?.id && role === 'admin',
+  );
   const title =
     conversation.data?.group?.name ||
     conversation.data?.name ||
@@ -118,6 +142,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background">
+      {deletingChat && <DeleteChatDialog conversationId={conversationId} onClose={() => setDeletingChat(false)} />}
       <header className="flex items-center gap-3 border-b bg-muted/50 px-4 py-3 md:px-6">
         <Button
           aria-label={text('Back to conversations')}
@@ -136,12 +161,12 @@ export function ConversationView({ conversationId }: { conversationId: string })
           <AvatarFallback className="bg-primary/10 font-semibold text-primary">
             {title.charAt(0).toUpperCase()}
           </AvatarFallback>
+          {conversation.data?.type === 'private' && <PresenceStatus presence={otherMember?.presence ?? null} />}
         </Avatar>
         <div className="min-w-0 flex-1">
           <h1 className="truncate font-semibold">{conversation.isPending ? text('Loading conversation…') : title}</h1>
           {conversation.data?.type === 'private' ? (
             <div className="flex items-center gap-2">
-              <PresenceStatus presence={otherMember?.presence ?? null} />
               <span className="truncate text-xs text-muted-foreground">
                 {otherMember ? `@${otherMember.username}` : ''}
               </span>
@@ -158,6 +183,11 @@ export function ConversationView({ conversationId }: { conversationId: string })
             </p>
           )}
         </div>
+        {(conversation.data?.type === 'private' || isAdmin) && (
+          <Button aria-label={text('Delete chat')} size="icon-sm" variant="ghost" onClick={() => setDeletingChat(true)}>
+            <Trash2 aria-hidden="true" />
+          </Button>
+        )}
       </header>
       {conversation.data && conversation.data.type !== 'private' && (
         <div className="border-b px-4 py-3 md:px-6">
@@ -166,6 +196,11 @@ export function ConversationView({ conversationId }: { conversationId: string })
       )}
 
       <section
+        ref={messageViewport}
+        onScroll={(event) => {
+          const viewport = event.currentTarget;
+          nearBottom.current = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 80;
+        }}
         aria-label={text('Messages')}
         aria-live="polite"
         className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#efeae2] px-4 py-5 md:px-10 dark:bg-[#0b141a]"
@@ -226,6 +261,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
                       </ul>
                     )}
                     <span className="mt-1 flex items-center justify-end gap-1 text-[11px]">
+                      {message.edited_at && <span className="opacity-70">{text('Edited')}</span>}
                       <time className="opacity-70" dateTime={message.created_at}>
                         {formatTime(message.created_at, locale)}
                       </time>
@@ -241,6 +277,16 @@ export function ConversationView({ conversationId }: { conversationId: string })
                             />
                           ) : (
                             <Check aria-hidden="true" className="size-3.5 opacity-70" />
+                          )}
+                          {currentUser && (
+                            <MessageActions
+                              message={message}
+                              conversationId={conversationId}
+                              own={isOwn}
+                              canDeleteForEveryone={
+                                isOwn || (conversation.data?.type !== 'private' && Boolean(isAdmin))
+                              }
+                            />
                           )}
                         </span>
                       )}

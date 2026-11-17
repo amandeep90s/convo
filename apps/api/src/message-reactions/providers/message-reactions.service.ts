@@ -18,6 +18,7 @@ export class MessageReactionsService {
       where: {
         id: messageId,
         deleted_at: null,
+        hidden_for: { none: { user_id: userId } },
         OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
       },
       select: { conversation_id: true },
@@ -40,6 +41,7 @@ export class MessageReactionsService {
       where: {
         id: messageId,
         deleted_at: null,
+        hidden_for: { none: { user_id: userId } },
         OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
       },
       select: { conversation_id: true },

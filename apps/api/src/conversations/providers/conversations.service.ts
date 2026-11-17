@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@repo/db';
 import type { UpdateConversationDto } from '@repo/shared';
 
@@ -56,6 +60,7 @@ export class ConversationsService {
           messages: {
             where: {
               deleted_at: null,
+              hidden_for: { none: { user_id: userId } },
               OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
             },
             orderBy: { created_at: 'desc' },
@@ -100,6 +105,10 @@ export class ConversationsService {
           AND member.left_at IS NULL
           AND message.sender_id <> ${userId}::uuid
           AND message.deleted_at IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM hidden_messages AS hidden
+            WHERE hidden.message_id = message.id AND hidden.user_id = ${userId}::uuid
+          )
           AND (message.expires_at IS NULL OR message.expires_at > NOW())
           AND message.created_at >= member.joined_at
           AND (read_cursor.id IS NULL OR (message.created_at, message.id) > (read_cursor.created_at, read_cursor.id))
@@ -196,6 +205,7 @@ export class ConversationsService {
       await this.archive(userId, conversationId, true);
       return { left: false, archived: true };
     }
+
     const now = new Date();
     const memberCount = await this.prisma.conversationMember.count({
       where: { conversation_id: conversationId, left_at: null },
@@ -239,6 +249,48 @@ export class ConversationsService {
       }
     });
     return { left: true, wasAdmin: membership.role === 'admin' };
+  }
+
+  async removeForEveryone(userId: string, conversationId: string) {
+    const membership = await this.access.requireMember(conversationId, userId);
+    const conversation = await this.prisma.conversation.findUniqueOrThrow({
+      where: { id: conversationId },
+      select: { type: true },
+    });
+    if (conversation.type !== 'private' && membership.role !== 'admin') {
+      throw new ForbiddenException(
+        'Only a group admin can delete this chat for everyone',
+      );
+    }
+    const now = new Date();
+    await this.prisma.$transaction(async (transaction) => {
+      const result = await transaction.conversation.updateMany({
+        where: { id: conversationId, deleted_at: null },
+        data: { deleted_at: now, last_message_id: null, last_message_at: null },
+      });
+      if (!result.count) throw new NotFoundException('Conversation not found');
+      await transaction.message.updateMany({
+        where: { conversation_id: conversationId },
+        data: {
+          content: null,
+          metadata: Prisma.DbNull,
+          deleted_at: now,
+          deleted_by_id: userId,
+          deletion_kind: 'system',
+        },
+      });
+      if (conversation.type === 'private') {
+        await transaction.privateConversation.deleteMany({
+          where: { conversation_id: conversationId },
+        });
+      }
+    });
+    await this.realtime.emitConversationEvent(
+      conversationId,
+      'conversation:deleted',
+      {},
+    );
+    return { deleted: true };
   }
 
   async archive(userId: string, conversationId: string, archived: boolean) {

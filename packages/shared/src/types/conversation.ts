@@ -2,6 +2,7 @@ import type { DatabaseDate } from './prisma-common.js';
 import type { EConversationType } from '@repo/db';
 import type { TUser } from './user.js';
 import type { TMessage } from './message.js';
+import type { TConversationMember } from './conversation-member.js';
 
 export type UserPresence = 'online' | 'offline' | null;
 export type ChatParticipant = Pick<TUser, 'id' | 'name' | 'username' | 'avatar_url'> & {
@@ -13,6 +14,7 @@ export type ConversationListItem = Pick<TConversation, 'id' | 'name' | 'type'> &
   unread_count: number;
   members: Array<{
     user_id: string;
+    role: TConversationMember['role'];
     archived_at: string | null;
     starred_at: string | null;
     user: ChatParticipant;
