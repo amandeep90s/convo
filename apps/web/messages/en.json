@@ -558,6 +558,25 @@
     "messages_must_be_10_000_characters_or_fewer_eddf69da": "Messages must be 10,000 characters or fewer.",
     "load_more_conversations_f818a93e": "Load more conversations",
     "files_must_be_between_1_byte_and_20_mb_3fa0c7ed": "Files must be between 1 byte and 20 MB",
-    "could_not_send_this_attachment_check_the_chat_before_retryin_416ffd82": "Could not send this attachment. Check the chat before retrying."
+    "could_not_send_this_attachment_check_the_chat_before_retryin_416ffd82": "Could not send this attachment. Check the chat before retrying.",
+    "pinned_messages_c56c8a9d": "Pinned messages",
+    "name_is_typing_1ecc95b3": "{name} is typing…",
+    "no_pinned_messages_1ecc06ce": "No pinned messages.",
+    "unread_messages_bc613da2": "Unread messages",
+    "original_message_unavailable_90c0bc8b": "Original message unavailable",
+    "jump_to_latest_72dec14d": "Jump to latest",
+    "message_preview_853f4508": "Message preview",
+    "original_message_from_this_conversation_ef03c902": "Original message from this conversation.",
+    "could_not_update_pinned_messages_10ed9958": "Could not update pinned messages.",
+    "reply_d1ca83c7": "Reply",
+    "unpin_message_122b93fa": "Unpin message",
+    "pin_message_6e68281b": "Pin message",
+    "draft_storage_is_unavailable_keep_this_tab_open_to_retain_yo_359503c3": "Draft storage is unavailable. Keep this tab open to retain your text.",
+    "replying_to_name_5d81912f": "Replying to {name}",
+    "cancel_reply_d14b578b": "Cancel reply",
+    "could_not_update_typing_status_bf8559f3": "Could not update typing status.",
+    "could_not_update_reaction_8a2dbb6b": "Could not update reaction.",
+    "react_with_emoji_4e683138": "React with {emoji}",
+    "react_to_message_cee1ad66": "React to message"
   }
 }

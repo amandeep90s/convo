@@ -149,6 +149,7 @@ export class MessageAttachmentsService {
     userId: string,
     conversationId: string,
     file: UploadedMessageFile,
+    replyToId?: string,
   ) {
     await this.access.requireMember(conversationId, userId);
     const stored = await this.storeFile(file);
@@ -158,6 +159,7 @@ export class MessageAttachmentsService {
         conversation_id: conversationId,
         type: stored.type,
         content: stored.file_name ?? undefined,
+        ...(replyToId ? { reply_to_id: replyToId } : {}),
       },
       stored,
     );

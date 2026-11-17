@@ -1,4 +1,5 @@
 import {
+  attachmentMessageOptionsSchema,
   createBlockedUserSchema,
   createCallParticipantSchema,
   createCallSchema,
@@ -38,6 +39,9 @@ export class ListConversationsDto extends createZodDto(
   listConversationsParamsSchema,
 ) {}
 export class CreateMessageDto extends createZodDto(createMessageSchema) {}
+export class AttachmentMessageOptionsDto extends createZodDto(
+  attachmentMessageOptionsSchema,
+) {}
 export class SearchMessagesDto extends createZodDto(
   searchMessagesParamsSchema,
 ) {}

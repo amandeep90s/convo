@@ -1,20 +1,22 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type CreateMessageDto, createMessageSchema } from '@repo/shared';
+import { type CreateMessageDto, createMessageSchema, type MessagePreview } from '@repo/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { EmojiClickData } from 'emoji-picker-react';
-import { Paperclip, Send, Smile } from 'lucide-react';
+import { Paperclip, Send, Smile, X } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
+import { useChatActivity } from '@/components/app/chat-activity';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
 import { useUiText } from '@/i18n/ui-text';
 import { ApiError, apiRequest } from '@/lib/client/api';
+import { useCurrentUser } from '@/lib/client/use-current-user';
 
 const ChatEmojiPicker = dynamic(() => import('@/components/app/chat-emoji-picker'), { ssr: false });
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
@@ -35,14 +37,30 @@ const messageFormSchema = createMessageSchema.pick({ content: true }).extend({
   content: z.string().trim().min(1, 'Write a message before sending.').max(10000),
 });
 
-export function MessageComposer({ conversationId, disabled = false }: { conversationId: string; disabled?: boolean }) {
+export function MessageComposer({
+  conversationId,
+  disabled: unavailable = false,
+  reply,
+  onReplyCleared,
+}: {
+  conversationId: string;
+  disabled?: boolean;
+  reply: MessagePreview | null;
+  onReplyCleared: () => void;
+}) {
   const text = useUiText();
   const queryClient = useQueryClient();
+  const { data: user } = useCurrentUser();
+  const { sendTyping } = useChatActivity();
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [draftReady, setDraftReady] = useState(false);
+  const disabled = unavailable || !draftReady;
+  const [draftError, setDraftError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const selection = useRef<{ start: number; end: number } | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
-  const { control, register, handleSubmit, reset, formState, getValues, setValue, setError } = useForm<
+  const { control, register, handleSubmit, reset, watch, formState, getValues, setValue, setError } = useForm<
     z.input<typeof messageFormSchema>,
     unknown,
     z.output<typeof messageFormSchema>
@@ -54,6 +72,40 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
   const contentRegistration = register('content');
   const [uploading, setUploading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  useEffect(() => {
+    if (reply) inputRef.current?.focus();
+  }, [reply?.id]);
+  useEffect(() => {
+    if (!user?.id) return;
+    const key = `convo:draft:${user.id}:${conversationId}`;
+    try {
+      reset({ content: (sessionStorage.getItem(key) ?? '').slice(0, 10000) });
+    } catch {
+      setDraftError(text('Draft storage is unavailable. Keep this tab open to retain your text.'));
+    }
+    setDraftReady(true);
+    const subscription = watch((values) => {
+      try {
+        if (values.content) sessionStorage.setItem(key, values.content);
+        else sessionStorage.removeItem(key);
+      } catch {
+        setDraftError(text('Draft storage is unavailable. Keep this tab open to retain your text.'));
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [conversationId, user?.id, reset, watch, text]);
+  useEffect(
+    () => () => {
+      clearTimeout(typingTimer.current);
+      sendTyping(conversationId, false);
+    },
+    [conversationId, sendTyping],
+  );
+  function typingChanged(hasText: boolean) {
+    clearTimeout(typingTimer.current);
+    sendTyping(conversationId, hasText);
+    if (hasText) typingTimer.current = setTimeout(() => sendTyping(conversationId, false), 3000);
+  }
   const sendMessage = useMutation({
     mutationFn: (body: CreateMessageDto) =>
       apiRequest('messages', {
@@ -61,10 +113,12 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
         body,
       }),
     onSuccess: async () => {
-      reset();
+      reset({ content: '' });
       selection.current = null;
       setEmojiOpen(false);
       setSubmitError(null);
+      onReplyCleared();
+      typingChanged(false);
       try {
         await refreshConversationQueries();
       } catch (refreshError) {
@@ -79,9 +133,15 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
   });
 
   function submitMessage({ content }: z.output<typeof messageFormSchema>) {
-    if (sendMessage.isPending || uploading) return;
+    if (disabled || sendMessage.isPending || uploading) return;
     setSubmitError(null);
-    sendMessage.mutate({ conversation_id: conversationId, type: 'text', content });
+    typingChanged(false);
+    sendMessage.mutate({
+      conversation_id: conversationId,
+      type: 'text',
+      content,
+      ...(reply ? { reply_to_id: reply.id } : {}),
+    });
   }
 
   function insertEmoji({ emoji }: EmojiClickData) {
@@ -95,6 +155,7 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
       return;
     }
     setValue('content', value, { shouldDirty: true, shouldValidate: true });
+    typingChanged(true);
     const cursor = start + emoji.length;
     selection.current = { start: cursor, end: cursor };
     setEmojiOpen(false);
@@ -105,6 +166,7 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
   }
 
   async function uploadFile(file: File) {
+    if (disabled || uploading || sendMessage.isPending) return;
     const type = supportedFiles[file.type];
     if (!type) {
       setSubmitError(
@@ -121,6 +183,7 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
     setSubmitError(null);
     const formData = new FormData();
     formData.append('file', file);
+    if (reply) formData.append('reply_to_id', reply.id);
     try {
       await apiRequest(`message-attachments/conversations/${conversationId}/upload`, {
         method: 'POST',
@@ -132,6 +195,8 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
       return;
     }
 
+    onReplyCleared();
+    typingChanged(false);
     try {
       await refreshConversationQueries();
     } catch (refreshError) {
@@ -154,6 +219,28 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
 
   return (
     <div>
+      {reply && (
+        <div className="mb-2 flex items-center gap-2 rounded-xl border-l-4 border-primary bg-primary/5 p-3 text-sm">
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">{text('Replying to {name}', { name: reply.sender.name })}</p>
+            <p className="truncate text-muted-foreground">{reply.content || text('Shared attachment')}</p>
+          </div>
+          <Button
+            aria-label={text('Cancel reply')}
+            disabled={uploading || sendMessage.isPending}
+            size="icon-sm"
+            variant="ghost"
+            onClick={onReplyCleared}
+          >
+            <X aria-hidden="true" />
+          </Button>
+        </div>
+      )}
+      {draftError && (
+        <p role="alert" className="mb-2 text-xs text-destructive">
+          {draftError}
+        </p>
+      )}
       {submitError && (
         <p className="mb-2 text-sm text-destructive" role="alert">
           {text(submitError)}
@@ -221,6 +308,14 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
           maxLength={10000}
           placeholder={uploading ? text('Uploading attachment…') : text('Write a message…')}
           {...contentRegistration}
+          onChange={(event) => {
+            void contentRegistration.onChange(event);
+            typingChanged(Boolean(event.target.value.trim()));
+          }}
+          onBlur={(event) => {
+            void contentRegistration.onBlur(event);
+            typingChanged(false);
+          }}
           ref={(node) => {
             contentRegistration.ref(node);
             inputRef.current = node;
@@ -235,7 +330,7 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
         <Button
           aria-label={text('Send message')}
           className="size-11 rounded-full bg-gradient-to-br from-[#087e64] to-[#12a178] text-white shadow-lg shadow-primary/20 hover:brightness-105"
-          disabled={disabled || !messageText || sendMessage.isPending || uploading}
+          disabled={disabled || !draftReady || !messageText || sendMessage.isPending || uploading}
           size="icon"
           type="submit"
         >

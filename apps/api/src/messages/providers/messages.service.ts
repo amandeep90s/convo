@@ -39,7 +39,7 @@ export class MessagesService {
     cursor: string | undefined,
     limit: number,
   ) {
-    await this.access.requireMember(conversationId, userId);
+    const membership = await this.access.requireMember(conversationId, userId);
     const take = boundedLimit(limit);
     const now = new Date();
     if (cursor) {
@@ -65,16 +65,56 @@ export class MessagesService {
         reactions: true,
         receipts: true,
       },
-      orderBy: { created_at: 'desc' },
+      orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       take: take + 1,
     });
     const hasMore = messages.length > take;
-    const items = messages.slice(0, take).map(serializeMessage);
+    const items = await this.withReplyPreviews(
+      userId,
+      messages.slice(0, take).map(serializeMessage),
+    );
+    const readCursor =
+      !cursor && membership.last_read_message_id
+        ? await this.prisma.message.findUnique({
+            where: { id: membership.last_read_message_id },
+            select: { created_at: true, id: true },
+          })
+        : null;
+    const firstUnread = !cursor
+      ? await this.prisma.message.findFirst({
+          where: {
+            conversation_id: conversationId,
+            sender_id: { not: userId },
+            deleted_at: null,
+            hidden_for: { none: { user_id: userId } },
+            created_at: { gte: membership.joined_at },
+            OR: [{ expires_at: null }, { expires_at: { gt: now } }],
+            ...(readCursor
+              ? {
+                  AND: [
+                    {
+                      OR: [
+                        { created_at: { gt: readCursor.created_at } },
+                        {
+                          created_at: readCursor.created_at,
+                          id: { gt: readCursor.id },
+                        },
+                      ],
+                    },
+                  ],
+                }
+              : {}),
+          },
+          orderBy: [{ created_at: 'asc' }, { id: 'asc' }],
+          select: { id: true },
+        })
+      : null;
     return {
       items,
       nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
       hasMore,
+      ...(!cursor ? { firstUnreadId: firstUnread?.id ?? null } : {}),
     };
   }
 
@@ -180,7 +220,50 @@ export class MessagesService {
     });
     if (!message) throw new NotFoundException('Message not found');
     await this.access.requireMember(message.conversation_id, userId);
-    return serializeMessage(message);
+    const [result] = await this.withReplyPreviews(userId, [
+      serializeMessage(message),
+    ]);
+    return result;
+  }
+
+  private async withReplyPreviews<T extends { reply_to_id: string | null }>(
+    userId: string,
+    messages: T[],
+  ) {
+    const ids = [
+      ...new Set(
+        messages.flatMap((message) =>
+          message.reply_to_id ? [message.reply_to_id] : [],
+        ),
+      ),
+    ];
+    const replies = ids.length
+      ? await this.prisma.message.findMany({
+          where: {
+            id: { in: ids },
+            deleted_at: null,
+            hidden_for: { none: { user_id: userId } },
+            conversation: {
+              deleted_at: null,
+              members: { some: { user_id: userId, left_at: null } },
+            },
+            OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
+          },
+          select: {
+            id: true,
+            type: true,
+            content: true,
+            sender: { select: { id: true, name: true } },
+          },
+        })
+      : [];
+    const byId = new Map(replies.map((reply) => [reply.id, reply]));
+    return messages.map((message) => ({
+      ...message,
+      reply: message.reply_to_id
+        ? (byId.get(message.reply_to_id) ?? null)
+        : null,
+    }));
   }
 
   async create(

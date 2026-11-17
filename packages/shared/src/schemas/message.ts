@@ -5,6 +5,12 @@ import { dateTimeSchema, paginationParamsSchema } from './common.js';
 
 export const messageTypeSchema = z.enum(MESSAGE_TYPES);
 
+export const typingEventSchema = z.object({
+  conversation_id: z.uuid(),
+  typing: z.boolean(),
+});
+export type TypingInput = z.infer<typeof typingEventSchema>;
+
 export const messageDeletionKindSchema = z.enum(MESSAGE_DELETION_KINDS);
 
 const bigIntInputSchema = z.union([z.number().int().nonnegative(), z.string().regex(/^\d+$/)]);
@@ -38,6 +44,8 @@ export const createMessageSchema = z.object({
 export const updateMessageSchema = z.object({
   content: z.string().trim().min(1, 'Write a message before saving.').max(10000),
 });
+
+export const attachmentMessageOptionsSchema = createMessageSchema.pick({ reply_to_id: true });
 
 export const deleteMessageParamsSchema = z.object({
   scope: z.enum(['me', 'everyone']).default('everyone'),

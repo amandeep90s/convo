@@ -558,6 +558,25 @@
     "messages_must_be_10_000_characters_or_fewer_eddf69da": "ਸੁਨੇਹੇ 10,000 ਜਾਂ ਘੱਟ ਅੱਖਰਾਂ ਦੇ ਹੋਣੇ ਚਾਹੀਦੇ ਹਨ।",
     "load_more_conversations_f818a93e": "ਹੋਰ ਗੱਲਬਾਤਾਂ ਲੋਡ ਕਰੋ",
     "files_must_be_between_1_byte_and_20_mb_3fa0c7ed": "ਫ਼ਾਈਲਾਂ 1 ਬਾਈਟ ਤੋਂ 20 MB ਦੇ ਵਿਚਕਾਰ ਹੋਣੀਆਂ ਚਾਹੀਦੀਆਂ ਹਨ",
-    "could_not_send_this_attachment_check_the_chat_before_retryin_416ffd82": "ਇਹ ਨੱਥੀ ਫ਼ਾਈਲ ਭੇਜੀ ਨਹੀਂ ਜਾ ਸਕੀ। ਮੁੜ ਕੋਸ਼ਿਸ਼ ਕਰਨ ਤੋਂ ਪਹਿਲਾਂ ਚੈਟ ਵੇਖੋ।"
+    "could_not_send_this_attachment_check_the_chat_before_retryin_416ffd82": "ਇਹ ਨੱਥੀ ਫ਼ਾਈਲ ਭੇਜੀ ਨਹੀਂ ਜਾ ਸਕੀ। ਮੁੜ ਕੋਸ਼ਿਸ਼ ਕਰਨ ਤੋਂ ਪਹਿਲਾਂ ਚੈਟ ਵੇਖੋ।",
+    "pinned_messages_c56c8a9d": "ਪਿੰਨ ਕੀਤੇ ਸੁਨੇਹੇ",
+    "name_is_typing_1ecc95b3": "{name} ਲਿਖ ਰਹੇ ਹਨ…",
+    "no_pinned_messages_1ecc06ce": "ਕੋਈ ਪਿੰਨ ਕੀਤੇ ਸੁਨੇਹੇ ਨਹੀਂ ਹਨ।",
+    "unread_messages_bc613da2": "ਅਣਪੜ੍ਹੇ ਸੁਨੇਹੇ",
+    "original_message_unavailable_90c0bc8b": "ਅਸਲ ਸੁਨੇਹਾ ਉਪਲਬਧ ਨਹੀਂ ਹੈ",
+    "jump_to_latest_72dec14d": "ਨਵੇਂ ਸੁਨੇਹੇ 'ਤੇ ਜਾਓ",
+    "message_preview_853f4508": "ਸੁਨੇਹੇ ਦੀ ਝਲਕ",
+    "original_message_from_this_conversation_ef03c902": "ਇਸ ਗੱਲਬਾਤ ਦਾ ਅਸਲ ਸੁਨੇਹਾ।",
+    "could_not_update_pinned_messages_10ed9958": "ਪਿੰਨ ਕੀਤੇ ਸੁਨੇਹੇ ਅੱਪਡੇਟ ਨਹੀਂ ਹੋ ਸਕੇ।",
+    "reply_d1ca83c7": "ਜਵਾਬ ਦਿਓ",
+    "unpin_message_122b93fa": "ਸੁਨੇਹਾ ਅਨਪਿੰਨ ਕਰੋ",
+    "pin_message_6e68281b": "ਸੁਨੇਹਾ ਪਿੰਨ ਕਰੋ",
+    "draft_storage_is_unavailable_keep_this_tab_open_to_retain_yo_359503c3": "ਡਰਾਫਟ ਸੇਵ ਕਰਨਾ ਉਪਲਬਧ ਨਹੀਂ ਹੈ। ਆਪਣਾ ਲਿਖਿਆ ਸੰਭਾਲਣ ਲਈ ਇਹ ਟੈਬ ਖੁੱਲ੍ਹੀ ਰੱਖੋ।",
+    "replying_to_name_5d81912f": "{name} ਨੂੰ ਜਵਾਬ",
+    "cancel_reply_d14b578b": "ਜਵਾਬ ਰੱਦ ਕਰੋ",
+    "could_not_update_typing_status_bf8559f3": "ਲਿਖਣ ਦੀ ਸਥਿਤੀ ਅੱਪਡੇਟ ਨਹੀਂ ਹੋ ਸਕੀ।",
+    "could_not_update_reaction_8a2dbb6b": "ਪ੍ਰਤੀਕਿਰਿਆ ਅੱਪਡੇਟ ਨਹੀਂ ਹੋ ਸਕੀ।",
+    "react_with_emoji_4e683138": "{emoji} ਨਾਲ ਪ੍ਰਤੀਕਿਰਿਆ ਦਿਓ",
+    "react_to_message_cee1ad66": "ਸੁਨੇਹੇ 'ਤੇ ਪ੍ਰਤੀਕਿਰਿਆ ਦਿਓ"
   }
 }

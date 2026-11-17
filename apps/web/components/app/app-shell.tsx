@@ -20,6 +20,7 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useCallback, useState } from 'react';
 
+import { ChatActivityProvider } from '@/components/app/chat-activity';
 import { ConversationList } from '@/components/app/conversation-list';
 import { LogoutButton } from '@/components/app/logout-button';
 import { NotificationBell, type NotificationItem } from '@/components/app/notification-bell';
@@ -57,6 +58,14 @@ const settingsNavigation = [
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <ChatActivityProvider>
+      <AppShellContent>{children}</AppShellContent>
+    </ChatActivityProvider>
+  );
+}
+
+function AppShellContent({ children }: { children: ReactNode }) {
   const text = useUiText();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const receiveNotification = useCallback((message: RealtimeMessage) => {

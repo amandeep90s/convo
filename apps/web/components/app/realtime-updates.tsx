@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  ClientRealtimeEvents,
   ConversationEvent,
   MessageChangeEvent,
   RealtimeMessage,
@@ -15,6 +16,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 
+import { useChatActivity } from '@/components/app/chat-activity';
 import { useNotificationSound } from '@/components/app/notification-sound';
 import { Button } from '@/components/ui/button';
 import { useUiText } from '@/i18n/ui-text';
@@ -29,6 +31,7 @@ export function RealtimeUpdates({
   onContentRemoved: (event: ConversationEvent & { id?: string }) => void;
 }) {
   const text = useUiText();
+  const { setSocket, receiveTyping } = useChatActivity();
   const { play: playSound } = useNotificationSound();
   const { data: user } = useCurrentUser();
   const userId = user?.id;
@@ -51,7 +54,7 @@ export function RealtimeUpdates({
     let disposed = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
-    let socket: Socket<ServerRealtimeEvents> | undefined;
+    let socket: Socket<ServerRealtimeEvents, ClientRealtimeEvents> | undefined;
     const seenNotifications = new Set<string>();
     const pendingNotifications = new Map<string, RealtimeMessage>();
     const browserNotifications = new Map<string, Notification>();
@@ -120,6 +123,8 @@ export function RealtimeUpdates({
           updates.push(
             queryClient.invalidateQueries({ queryKey: ['messages', id] }),
             queryClient.invalidateQueries({ queryKey: ['conversation', id] }),
+            queryClient.invalidateQueries({ queryKey: ['pinned-messages', id] }),
+            queryClient.invalidateQueries({ queryKey: ['message-preview', id] }),
           );
         }
         pendingConversations.clear();
@@ -157,8 +162,11 @@ export function RealtimeUpdates({
       }, 5000);
     }
 
-    function subscribe(socket: Socket<ServerRealtimeEvents>) {
+    function subscribe(socket: Socket<ServerRealtimeEvents, ClientRealtimeEvents>) {
+      socket.on('conversation:typing', receiveTyping);
+      socket.on('message:pinned', refreshConversation);
       socket.on('connect', () => {
+        setSocket(socket);
         setConnectionError(null);
         void reconcileNotifications();
         void Promise.all([
@@ -166,6 +174,8 @@ export function RealtimeUpdates({
           queryClient.invalidateQueries({ queryKey: ['messages'] }),
           queryClient.invalidateQueries({ queryKey: ['conversation'] }),
           queryClient.invalidateQueries({ queryKey: ['user-settings'] }),
+          queryClient.invalidateQueries({ queryKey: ['pinned-messages'] }),
+          queryClient.invalidateQueries({ queryKey: ['message-preview'] }),
         ]).catch(reportError);
       });
       socket.on('connect_error', (reason) => {
@@ -177,6 +187,7 @@ export function RealtimeUpdates({
         reconnect();
       });
       socket.on('disconnect', () => {
+        setSocket(null);
         if (disposed) return;
         setConnectionError(text('Live updates disconnected. Reconnecting; messages still refresh periodically.'));
         reconnect();
@@ -217,6 +228,8 @@ export function RealtimeUpdates({
         pendingConversations.delete(event.conversation_id);
         queryClient.removeQueries({ queryKey: ['messages', event.conversation_id] });
         queryClient.removeQueries({ queryKey: ['conversation', event.conversation_id] });
+        queryClient.removeQueries({ queryKey: ['pinned-messages', event.conversation_id] });
+        queryClient.removeQueries({ queryKey: ['message-preview', event.conversation_id] });
         if (pathnameRef.current === `/chat/${event.conversation_id}`) router.replace('/chat');
         void queryClient.invalidateQueries({ queryKey: ['conversations'] }).catch(reportError);
       });
@@ -302,6 +315,7 @@ export function RealtimeUpdates({
       disposed = true;
       clearTimeout(retryTimer);
       clearTimeout(refreshTimer);
+      setSocket(null);
       clearInterval(reconciliationTimer);
       document.removeEventListener('visibilitychange', reconcileVisible);
       window.removeEventListener('online', reconcileVisible);
@@ -309,7 +323,7 @@ export function RealtimeUpdates({
       socket?.removeAllListeners();
       socket?.disconnect();
     };
-  }, [userId, queryClient, onNotification, onContentRemoved, text, playSound, router]);
+  }, [userId, queryClient, onNotification, onContentRemoved, text, playSound, router, setSocket, receiveTyping]);
 
   return (
     <>

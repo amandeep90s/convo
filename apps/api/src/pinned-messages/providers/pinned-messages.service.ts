@@ -2,12 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { ConversationAccessService } from '@/common/providers/conversation-access.service';
 import { PrismaService } from '@/prisma.service';
+import { RealtimeGateway } from '@/realtime/realtime.gateway';
 
 @Injectable()
 export class PinnedMessagesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: ConversationAccessService,
+    private readonly realtime: RealtimeGateway,
   ) {}
 
   async list(userId: string, conversationId: string) {
@@ -52,7 +54,7 @@ export class PinnedMessagesService {
     });
     if (!message) throw new NotFoundException('Message not found');
     await this.access.requireMember(message.conversation_id, userId);
-    return this.prisma.pinnedMessage.upsert({
+    const pin = await this.prisma.pinnedMessage.upsert({
       where: {
         conversation_id_message_id: {
           conversation_id: message.conversation_id,
@@ -67,6 +69,12 @@ export class PinnedMessagesService {
       update: { pinned_by: userId, pinned_at: new Date() },
       include: { message: true },
     });
+    await this.realtime.emitConversationEvent(
+      message.conversation_id,
+      'message:pinned',
+      { id: messageId },
+    );
+    return pin;
   }
 
   async unpin(userId: string, messageId: string) {
@@ -84,6 +92,11 @@ export class PinnedMessagesService {
         },
       },
     });
+    await this.realtime.emitConversationEvent(
+      pin.conversation_id,
+      'message:pinned',
+      { id: messageId },
+    );
     return { unpinned: true };
   }
 }
