@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { useUiText } from '@/i18n/ui-text';
 import { ApiError, apiRequest } from '@/lib/client/api';
 import { useCurrentUser } from '@/lib/client/use-current-user';
 
@@ -24,6 +25,7 @@ const contactSearchSchema = z.object({
 });
 
 export function ContactManager() {
+  const text = useUiText();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
@@ -54,7 +56,7 @@ export function ContactManager() {
       setError(null);
       await queryClient.invalidateQueries({ queryKey: ['contacts'] });
     },
-    onError: (reason) => setError(toMessage(reason, 'Could not add this contact.')),
+    onError: (reason) => setError(toMessage(reason, text('Could not add this contact.'))),
   });
   const removeContact = useMutation({
     mutationFn: (userId: string) => apiRequest(`contacts/${userId}`, { method: 'DELETE' }),
@@ -62,7 +64,7 @@ export function ContactManager() {
       setError(null);
       await queryClient.invalidateQueries({ queryKey: ['contacts'] });
     },
-    onError: (reason) => setError(toMessage(reason, 'Could not remove this contact.')),
+    onError: (reason) => setError(toMessage(reason, text('Could not remove this contact.'))),
   });
 
   function submitSearch({ query }: z.output<typeof contactSearchSchema>) {
@@ -72,7 +74,7 @@ export function ContactManager() {
 
   async function startConversation(personId: string) {
     if (!currentUser) {
-      setError('Your account could not be loaded. Refresh the page and try again.');
+      setError(text('Your account could not be loaded. Refresh the page and try again.'));
       return;
     }
     setError(null);
@@ -84,7 +86,7 @@ export function ContactManager() {
       await queryClient.invalidateQueries({ queryKey: ['conversations'] });
       router.push(`/chat/${conversation.conversation_id}`);
     } catch (reason) {
-      setError(toMessage(reason, 'Could not start this conversation.'));
+      setError(toMessage(reason, text('Could not start this conversation.')));
     }
   }
 
@@ -93,21 +95,21 @@ export function ContactManager() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-7">
       <header className="rounded-[1.75rem] bg-gradient-to-br from-[#063f35] via-[#087e64] to-[#25a87e] px-6 py-7 text-white shadow-xl shadow-primary/15 sm:px-9 sm:py-9">
-        <p className="text-xs font-semibold tracking-[0.18em] text-emerald-50/80 uppercase">Your people</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Contacts</h1>
-        <p className="mt-2 text-sm text-emerald-50/85">Find people and start a private conversation.</p>
+        <p className="text-xs font-semibold tracking-[0.18em] text-emerald-50/80 uppercase">{text('Your people')}</p>
+        <h1 className="text-3xl font-semibold tracking-tight">{text('Contacts')}</h1>
+        <p className="mt-2 text-sm text-emerald-50/85">{text('Find people and start a private conversation.')}</p>
       </header>
 
       <Card>
         <CardContent>
           <form className="flex flex-col gap-3 sm:flex-row" onSubmit={searchForm.handleSubmit(submitSearch)}>
             <Input
-              aria-label="Search people"
+              aria-label={text('Search people')}
               aria-invalid={Boolean(searchForm.formState.errors.query)}
               aria-describedby={searchForm.formState.errors.query ? 'contact-search-error' : undefined}
               className="h-11 rounded-xl bg-background/70 px-3"
               maxLength={100}
-              placeholder="Search by name or username"
+              placeholder={text('Search by name or username')}
               {...searchForm.register('query')}
             />
             <Button
@@ -116,12 +118,12 @@ export function ContactManager() {
               type="submit"
             >
               <Search aria-hidden="true" />
-              {users.isFetching ? 'Searching…' : 'Find people'}
+              {users.isFetching ? text('Searching…') : text('Find people')}
             </Button>
           </form>
           {searchForm.formState.errors.query?.message && (
             <p className="mt-2 text-xs font-medium text-destructive" id="contact-search-error">
-              {searchForm.formState.errors.query.message}
+              {text(searchForm.formState.errors.query.message)}
             </p>
           )}
         </CardContent>
@@ -132,18 +134,18 @@ export function ContactManager() {
           className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
           role="alert"
         >
-          {error}
+          {text(error)}
         </p>
       )}
 
       {submittedSearch && (
         <section className="flex flex-col gap-3" aria-labelledby="people-results-title">
           <h2 className="text-lg font-semibold" id="people-results-title">
-            People
+            {text('People')}
           </h2>
-          {users.isPending && <Status>Searching people…</Status>}
-          {users.isError && <Status role="alert">{users.error.message}</Status>}
-          {users.isSuccess && users.data.data.length === 0 && <Status>No people match that search.</Status>}
+          {users.isPending && <Status>{text('Searching people…')}</Status>}
+          {users.isError && <Status role="alert">{text(users.error.message)}</Status>}
+          {users.isSuccess && users.data.data.length === 0 && <Status>{text('No people match that search.')}</Status>}
           {users.isSuccess &&
             users.data.data.map((person) => (
               <PersonCard
@@ -160,12 +162,12 @@ export function ContactManager() {
 
       <section className="flex flex-col gap-3" aria-labelledby="contacts-title">
         <h2 className="text-lg font-semibold" id="contacts-title">
-          Your contacts
+          {text('Your contacts')}
         </h2>
-        {contacts.isPending && <Status>Loading contacts…</Status>}
-        {contacts.isError && <Status role="alert">{contacts.error.message}</Status>}
+        {contacts.isPending && <Status>{text('Loading contacts…')}</Status>}
+        {contacts.isError && <Status role="alert">{text(contacts.error.message)}</Status>}
         {contacts.isSuccess && contacts.data.data.length === 0 && (
-          <Status>No contacts yet. Search for someone to add.</Status>
+          <Status>{text('No contacts yet. Search for someone to add.')}</Status>
         )}
         {contacts.isSuccess &&
           contacts.data.data.map(({ contact_user: person, nickname }) => (
@@ -177,7 +179,7 @@ export function ContactManager() {
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <Button
-                    aria-label={`Message ${person.name}`}
+                    aria-label={text('Message {value0}', { value0: person.name })}
                     onClick={() => void startConversation(person.id)}
                     size="icon"
                     type="button"
@@ -186,7 +188,7 @@ export function ContactManager() {
                     <MessageCircle aria-hidden="true" />
                   </Button>
                   <Button
-                    aria-label={`Remove ${person.name} from contacts`}
+                    aria-label={text('Remove {value0} from contacts', { value0: person.name })}
                     disabled={removeContact.isPending && removeContact.variables === person.id}
                     onClick={() => removeContact.mutate(person.id)}
                     size="icon"
@@ -217,6 +219,7 @@ function PersonCard({
   onAdd: () => void;
   onMessage: () => void;
 }) {
+  const text = useUiText();
   return (
     <Card>
       <CardContent className="flex-row items-center justify-between gap-4">
@@ -228,15 +231,20 @@ function PersonCard({
         <div className="flex shrink-0 gap-2">
           {isContact ? (
             <Button disabled type="button" variant="outline">
-              Added
+              {text('Added')}
             </Button>
           ) : (
             <Button className="rounded-xl" disabled={isPending} onClick={onAdd} type="button" variant="outline">
               <UserPlus aria-hidden="true" />
-              Add
+              {text('Add')}
             </Button>
           )}
-          <Button aria-label={`Message ${person.name}`} onClick={onMessage} size="icon" type="button">
+          <Button
+            aria-label={text('Message {value0}', { value0: person.name })}
+            onClick={onMessage}
+            size="icon"
+            type="button"
+          >
             <MessageCircle aria-hidden="true" />
           </Button>
         </div>

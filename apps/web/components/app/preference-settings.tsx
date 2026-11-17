@@ -19,6 +19,7 @@ import { BrowserNotifications } from '@/components/app/browser-notifications';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { useUiText } from '@/i18n/ui-text';
 import { ApiError, apiRequest } from '@/lib/client/api';
 
 type Section = 'appearance' | 'language' | 'privacy' | 'notifications' | 'chats';
@@ -76,6 +77,7 @@ const themes = [
 ] as const;
 
 export function PreferenceSettings({ section }: { section: Section }) {
+  const text = useUiText();
   const queryClient = useQueryClient();
   const router = useRouter();
   const { setTheme } = useTheme();
@@ -90,7 +92,7 @@ export function PreferenceSettings({ section }: { section: Section }) {
     mutationFn: (body: UpdateUserSettingsDto) => apiRequest<TUserSettings>('user-settings', { method: 'PATCH', body }),
     onSuccess: async (settings) => {
       setSubmitError(null);
-      setNotice('Your preferences have been saved.');
+      setNotice(text('Your preferences have been saved.'));
       if (section === 'appearance') setTheme(settings.theme);
       if (section === 'appearance' || section === 'language') {
         document.cookie = `locale=${settings.language}; path=/; max-age=31536000; samesite=lax`;
@@ -99,7 +101,7 @@ export function PreferenceSettings({ section }: { section: Section }) {
       await queryClient.invalidateQueries({ queryKey: ['user-settings'] });
     },
     onError: (reason) =>
-      setSubmitError(reason instanceof ApiError ? reason.message : 'Could not save your preferences.'),
+      setSubmitError(reason instanceof ApiError ? reason.message : text('Could not save your preferences.')),
   });
 
   function submit(values: PreferenceValues) {
@@ -129,21 +131,23 @@ export function PreferenceSettings({ section }: { section: Section }) {
   return (
     <div className="mx-auto w-full max-w-3xl">
       <header className="mb-6">
-        <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">Account center</p>
+        <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">{text('Account center')}</p>
         <h1 className="mt-2 flex items-center gap-2 text-3xl font-semibold tracking-tight">
           <Icon aria-hidden="true" className="size-6 text-primary" />
-          {info.title}
+          {text(info.title)}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">{info.description}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{text(info.description)}</p>
       </header>
       <Card>
         <CardHeader className="border-b border-border/60 pb-5">
-          <CardTitle>Preferences</CardTitle>
+          <CardTitle>{text('Preferences')}</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          {query.isPending && <PreferenceStatus>Loading preferences…</PreferenceStatus>}
+          {query.isPending && <PreferenceStatus>{text('Loading preferences…')}</PreferenceStatus>}
           {query.isError && (
-            <PreferenceStatus role="alert">Could not load preferences. {query.error.message}</PreferenceStatus>
+            <PreferenceStatus role="alert">
+              {text('Could not load preferences.')} {text(query.error.message)}
+            </PreferenceStatus>
           )}
           {query.data && (
             <PreferenceForm
@@ -177,6 +181,7 @@ function PreferenceForm({
   submitError: string | null;
   onSubmit: (values: PreferenceValues) => void;
 }) {
+  const text = useUiText();
   const defaultValues = useMemo(
     () => ({
       language: settings.language,
@@ -201,9 +206,9 @@ function PreferenceForm({
     <form className="flex flex-col gap-6" onSubmit={handleSubmit(onSubmit)}>
       {(section === 'appearance' || section === 'language') && (
         <SettingSelect
-          description="Used for menus and account screens."
+          description={text('Used for menus and account screens.')}
           id="settings-language"
-          label="Language"
+          label={text('Language')}
           options={languages}
           registration={register('language')}
           value={settings.language}
@@ -212,9 +217,9 @@ function PreferenceForm({
       )}
       {section === 'appearance' && (
         <SettingSelect
-          description="This preference follows your account on other signed-in devices."
+          description={text('This preference follows your account on other signed-in devices.')}
           id="settings-theme"
-          label="Theme"
+          label={text('Theme')}
           options={themes}
           registration={register('theme')}
           value={settings.theme}
@@ -224,18 +229,18 @@ function PreferenceForm({
       {section === 'privacy' && (
         <div className="grid gap-4">
           <VisibilitySelect
-            description="Who can view your profile details."
-            label="Profile visibility"
+            description={text('Who can view your profile details.')}
+            label={text('Profile visibility')}
             registration={register('profile_visibility')}
           />
           <VisibilitySelect
-            description="Who can see when you are online."
-            label="Online status"
+            description={text('Who can see when you are online.')}
+            label={text('Online status')}
             registration={register('online_visibility')}
           />
           <VisibilitySelect
-            description="Who can see when you were last active."
-            label="Last seen"
+            description={text('Who can see when you were last active.')}
+            label={text('Last seen')}
             registration={register('last_seen_visibility')}
           />
         </div>
@@ -243,8 +248,8 @@ function PreferenceForm({
       {section === 'notifications' && (
         <>
           <BooleanSetting
-            description="Show incoming message alerts for unmuted conversations."
-            label="Notifications enabled"
+            description={text('Show incoming message alerts for unmuted conversations.')}
+            label={text('Notifications enabled')}
             registration={register('notification_enabled')}
           />
           <BrowserNotifications />
@@ -252,20 +257,20 @@ function PreferenceForm({
       )}
       {section === 'chats' && (
         <BooleanSetting
-          description="Let people in your conversations know when you have read their messages."
-          label="Read receipts"
+          description={text('Let people in your conversations know when you have read their messages.')}
+          label={text('Read receipts')}
           registration={register('read_receipts')}
         />
       )}
       {notice && (
         <p className="flex items-center gap-2 text-sm text-primary" role="status">
           <CircleCheck aria-hidden="true" className="size-4" />
-          {notice}
+          {text(notice)}
         </p>
       )}
       {submitError && (
         <p className="text-sm text-destructive" role="alert">
-          {submitError}
+          {text(submitError)}
         </p>
       )}
       <div>
@@ -274,7 +279,7 @@ function PreferenceForm({
           disabled={isPending}
           type="submit"
         >
-          {isPending ? 'Saving preferences…' : 'Save preferences'}
+          {isPending ? text('Saving preferences…') : text('Save preferences')}
         </Button>
       </div>
     </form>
@@ -298,9 +303,10 @@ function SettingSelect({
   value: string;
   error?: string;
 }) {
+  const text = useUiText();
   return (
     <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id}>{text(label)}</Label>
       <select
         aria-describedby={error ? `${id}-error` : undefined}
         aria-invalid={Boolean(error)}
@@ -309,20 +315,20 @@ function SettingSelect({
         {...registration}
       >
         {!options.some((option) => option.value === value) && (
-          <option value={value}>{`Current setting (${value})`}</option>
+          <option value={value}>{text('Current setting ({value0})', { value0: value })}</option>
         )}
         {options.map((option) => (
           <option key={option.value} value={option.value}>
-            {option.label}
+            {text(option.label)}
           </option>
         ))}
       </select>
       {error ? (
         <p className="text-xs font-medium text-destructive" id={`${id}-error`}>
-          {error}
+          {text(error)}
         </p>
       ) : (
-        <p className="text-xs text-muted-foreground">{description}</p>
+        <p className="text-xs text-muted-foreground">{text(description)}</p>
       )}
     </div>
   );
@@ -337,20 +343,21 @@ function VisibilitySelect({
   label: string;
   registration: UseFormRegisterReturn;
 }) {
+  const text = useUiText();
   return (
     <div className="flex flex-col gap-2 rounded-2xl border border-border/70 bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
       <span>
-        <Label className="text-sm font-medium">{label}</Label>
-        <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
+        <Label className="text-sm font-medium">{text(label)}</Label>
+        <span className="mt-1 block text-xs text-muted-foreground">{text(description)}</span>
       </span>
       <select
-        aria-label={label}
+        aria-label={text(label)}
         className="h-10 min-w-40 rounded-xl border border-input bg-background px-3 text-sm"
         {...registration}
       >
-        <option value="everyone">Everyone</option>
-        <option value="contacts">Contacts only</option>
-        <option value="nobody">Nobody</option>
+        <option value="everyone">{text('Everyone')}</option>
+        <option value="contacts">{text('Contacts only')}</option>
+        <option value="nobody">{text('Nobody')}</option>
       </select>
     </div>
   );
@@ -365,14 +372,15 @@ function BooleanSetting({
   label: string;
   registration: UseFormRegisterReturn;
 }) {
+  const text = useUiText();
   return (
     <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-border/70 bg-muted/20 p-4">
       <span>
-        <span className="block text-sm font-medium">{label}</span>
-        <span className="mt-1 block text-sm text-muted-foreground">{description}</span>
+        <span className="block text-sm font-medium">{text(label)}</span>
+        <span className="mt-1 block text-sm text-muted-foreground">{text(description)}</span>
       </span>
       <span className="relative inline-flex shrink-0 items-center">
-        <input aria-label={label} className="peer sr-only" type="checkbox" {...registration} />
+        <input aria-label={text(label)} className="peer sr-only" type="checkbox" {...registration} />
         <span className="h-6 w-11 rounded-full bg-muted transition-colors peer-checked:bg-primary peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring after:absolute after:top-1 after:left-1 after:size-4 after:rounded-full after:bg-background after:shadow-sm after:transition-transform peer-checked:after:translate-x-5" />
       </span>
     </label>

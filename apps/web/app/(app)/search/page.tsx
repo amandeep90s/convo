@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useUiText } from '@/i18n/ui-text';
 
 type SearchAttachment = { id: string; type: string; file_name: string | null; mime_type: string };
 type SearchMessage = Pick<TMessage, 'id' | 'conversation_id' | 'type' | 'content' | 'created_at'> & {
@@ -57,6 +58,7 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
 });
 
 export default function SearchPage() {
+  const text = useUiText();
   const [searchCriteria, setSearchCriteria] = useState<MessageSearchValues | null>(null);
   const [searchedQuery, setSearchedQuery] = useState('');
   const [results, setResults] = useState<SearchMessage[]>([]);
@@ -85,7 +87,7 @@ export default function SearchPage() {
     };
     const parsed = searchMessagesParamsSchema.safeParse(input);
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Review the search filters and try again.');
+      setError(parsed.error.issues[0]?.message ?? text('Review the search filters and try again.'));
       return;
     }
 
@@ -106,7 +108,7 @@ export default function SearchPage() {
       const response = await fetch(`/api/messages/search?${params.toString()}`, { cache: 'no-store' });
       const payload = (await response.json()) as SearchResponse;
       if (!response.ok || !payload.success || !payload.data) {
-        setError(payload.message ?? 'Could not search messages.');
+        setError(payload.message ?? text('Could not search messages.'));
         setRequiresLogin(response.status === 401);
         setResults([]);
         setTotal(0);
@@ -123,7 +125,7 @@ export default function SearchPage() {
       setSearchCriteria(criteria);
       setHasSearched(true);
     } catch {
-      setError('Could not reach the search service. Please try again.');
+      setError(text('Could not reach the search service. Please try again.'));
       setResults([]);
       setTotal(0);
       setPage(1);
@@ -136,9 +138,9 @@ export default function SearchPage() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-7">
       <header className="rounded-[1.75rem] bg-gradient-to-br from-[#063f35] via-[#087e64] to-[#25a87e] px-6 py-7 text-white shadow-xl shadow-primary/15 sm:px-9 sm:py-9">
-        <p className="text-xs font-semibold tracking-[0.18em] text-emerald-50/80 uppercase">Find a moment</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Search messages</h1>
-        <p className="mt-2 text-sm text-emerald-50/85">Find messages across conversations you belong to.</p>
+        <p className="text-xs font-semibold tracking-[0.18em] text-emerald-50/80 uppercase">{text('Find a moment')}</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">{text('Search messages')}</h1>
+        <p className="mt-2 text-sm text-emerald-50/85">{text('Find messages across conversations you belong to.')}</p>
       </header>
 
       <Card>
@@ -151,7 +153,7 @@ export default function SearchPage() {
             })}
           >
             <div className="flex flex-col gap-2">
-              <Label htmlFor="message-query">Message text</Label>
+              <Label htmlFor="message-query">{text('Message text')}</Label>
               <Input
                 autoComplete="off"
                 aria-describedby={formErrors.q ? 'message-query-error' : undefined}
@@ -159,15 +161,15 @@ export default function SearchPage() {
                 className="h-11 rounded-xl bg-background/70 px-3"
                 id="message-query"
                 maxLength={100}
-                placeholder="Search messages…"
+                placeholder={text('Search messages…')}
                 {...form.register('q')}
               />
-              {formErrors.q?.message && <FieldError id="message-query-error">{formErrors.q.message}</FieldError>}
+              {formErrors.q?.message && <FieldError id="message-query-error">{text(formErrors.q.message)}</FieldError>}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="sender">Sender</Label>
+                <Label htmlFor="sender">{text('Sender')}</Label>
                 <Input
                   autoComplete="off"
                   aria-describedby={formErrors.sender ? 'sender-error' : undefined}
@@ -175,13 +177,15 @@ export default function SearchPage() {
                   className="h-11 rounded-xl bg-background/70 px-3"
                   id="sender"
                   maxLength={100}
-                  placeholder="Name or username"
+                  placeholder={text('Name or username')}
                   {...form.register('sender')}
                 />
-                {formErrors.sender?.message && <FieldError id="sender-error">{formErrors.sender.message}</FieldError>}
+                {formErrors.sender?.message && (
+                  <FieldError id="sender-error">{text(formErrors.sender.message)}</FieldError>
+                )}
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="from-date">From date</Label>
+                <Label htmlFor="from-date">{text('From date')}</Label>
                 <Input
                   aria-describedby={formErrors.from ? 'from-date-error' : undefined}
                   aria-invalid={Boolean(formErrors.from)}
@@ -190,10 +194,12 @@ export default function SearchPage() {
                   type="date"
                   {...form.register('from')}
                 />
-                {formErrors.from?.message && <FieldError id="from-date-error">{formErrors.from.message}</FieldError>}
+                {formErrors.from?.message && (
+                  <FieldError id="from-date-error">{text(formErrors.from.message)}</FieldError>
+                )}
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="to-date">To date</Label>
+                <Label htmlFor="to-date">{text('To date')}</Label>
                 <Input
                   aria-describedby={formErrors.to ? 'to-date-error' : undefined}
                   aria-invalid={Boolean(formErrors.to)}
@@ -202,20 +208,20 @@ export default function SearchPage() {
                   type="date"
                   {...form.register('to')}
                 />
-                {formErrors.to?.message && <FieldError id="to-date-error">{formErrors.to.message}</FieldError>}
+                {formErrors.to?.message && <FieldError id="to-date-error">{text(formErrors.to.message)}</FieldError>}
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="attachment-type">Attachment</Label>
+                <Label htmlFor="attachment-type">{text('Attachment')}</Label>
                 <select
                   className="h-11 rounded-xl border border-input bg-background/70 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   id="attachment-type"
                   {...form.register('attachmentType')}
                 >
-                  <option value="">Any type</option>
-                  <option value="image">Images</option>
-                  <option value="video">Videos</option>
-                  <option value="audio">Audio</option>
-                  <option value="document">Documents</option>
+                  <option value="">{text('Any type')}</option>
+                  <option value="image">{text('Images')}</option>
+                  <option value="video">{text('Videos')}</option>
+                  <option value="audio">{text('Audio')}</option>
+                  <option value="document">{text('Documents')}</option>
                 </select>
               </div>
             </div>
@@ -227,7 +233,7 @@ export default function SearchPage() {
                 type="submit"
               >
                 <Search aria-hidden="true" />
-                {isSearching ? 'Searching…' : 'Search messages'}
+                {isSearching ? text('Searching…') : text('Search messages')}
               </Button>
             </div>
           </form>
@@ -240,23 +246,25 @@ export default function SearchPage() {
           className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
           role="alert"
         >
-          <p>{error}</p>
+          <p>{text(error)}</p>
           {requiresLogin && (
             <Link className="mt-2 inline-block font-medium underline underline-offset-4" href="/login">
-              Sign in
+              {text('Sign in')}
             </Link>
           )}
         </div>
       )}
 
       {results.length > 0 && (
-        <section aria-label="Search results" className="flex flex-col gap-3">
+        <section aria-label={text('Search results')} className="flex flex-col gap-3">
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <p>
-              {total} result{total === 1 ? '' : 's'}
+              {total} {text('result')}
+              {total === 1 ? '' : 's'}
             </p>
             <p>
-              Page {page} of {totalPages}
+              {text('Page')}
+              {page} {text('of')} {totalPages}
             </p>
           </div>
           {results.map((result) => (
@@ -267,9 +275,9 @@ export default function SearchPage() {
                     <span className="font-medium">{result.sender.name}</span>
                     <span className="text-xs text-muted-foreground">@{result.sender.username}</span>
                     <span className="text-xs text-muted-foreground">
-                      in{' '}
+                      {text('in')}{' '}
                       {result.conversation.name ??
-                        (result.conversation.type === 'private' ? 'Direct message' : 'Conversation')}
+                        (result.conversation.type === 'private' ? text('Direct message') : text('Conversation'))}
                     </span>
                   </div>
                   <time className="text-xs text-muted-foreground" dateTime={String(result.created_at)}>
@@ -296,7 +304,7 @@ export default function SearchPage() {
               </CardContent>
             </Card>
           ))}
-          <nav aria-label="Search result pages" className="flex items-center justify-center gap-3 pt-2">
+          <nav aria-label={text('Search result pages')} className="flex items-center justify-center gap-3 pt-2">
             <Button
               className="rounded-xl"
               disabled={isSearching || page <= 1 || !searchCriteria}
@@ -305,7 +313,7 @@ export default function SearchPage() {
               variant="outline"
             >
               <ChevronLeft aria-hidden="true" />
-              Previous
+              {text('Previous')}
             </Button>
             <Button
               className="rounded-xl"
@@ -314,7 +322,7 @@ export default function SearchPage() {
               type="button"
               variant="outline"
             >
-              Next
+              {text('Next')}
               <ChevronRight aria-hidden="true" />
             </Button>
           </nav>
@@ -324,8 +332,8 @@ export default function SearchPage() {
       {!isSearching && !error && results.length === 0 && total === 0 && (
         <p className="rounded-2xl border border-border/70 bg-card/60 px-5 py-8 text-center text-sm text-muted-foreground">
           {hasSearched
-            ? 'No messages matched those search terms and filters.'
-            : 'Enter a phrase to search your conversation history.'}
+            ? text('No messages matched those search terms and filters.')
+            : text('Enter a phrase to search your conversation history.')}
         </p>
       )}
     </div>

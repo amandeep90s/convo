@@ -15,6 +15,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useUiText } from '@/i18n/ui-text';
 import { ApiError, apiRequest } from '@/lib/client/api';
 
 type Community = {
@@ -25,6 +26,7 @@ type Community = {
 type PageResponse<T> = { data: T[]; total: number };
 
 export function CommunityManager() {
+  const text = useUiText();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
@@ -47,7 +49,8 @@ export function CommunityManager() {
       ]);
       router.push(`/communities/${community.conversation_id}`);
     },
-    onError: (reason) => setError(reason instanceof ApiError ? reason.message : 'Could not create the community.'),
+    onError: (reason) =>
+      setError(reason instanceof ApiError ? reason.message : text('Could not create the community.')),
   });
 
   function submit(data: CreateGroupDto) {
@@ -59,9 +62,13 @@ export function CommunityManager() {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-7">
       <header className="flex flex-wrap items-end justify-between gap-4 rounded-[1.75rem] bg-gradient-to-br from-[#063f35] via-[#087e64] to-[#25a87e] px-6 py-7 text-white shadow-xl shadow-primary/15 sm:px-9 sm:py-9">
         <div>
-          <p className="text-xs font-semibold tracking-[0.18em] text-emerald-50/80 uppercase">Find your circle</p>
-          <h1 className="text-3xl font-semibold tracking-tight">Communities</h1>
-          <p className="mt-2 text-sm text-emerald-50/85">Create a community or manage the ones you have joined.</p>
+          <p className="text-xs font-semibold tracking-[0.18em] text-emerald-50/80 uppercase">
+            {text('Find your circle')}
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight">{text('Communities')}</h1>
+          <p className="mt-2 text-sm text-emerald-50/85">
+            {text('Create a community or manage the ones you have joined.')}
+          </p>
         </div>
         <Button
           className="h-11 rounded-xl border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white"
@@ -70,13 +77,13 @@ export function CommunityManager() {
           variant="outline"
         >
           <Plus aria-hidden="true" />
-          {formOpen ? 'Cancel' : 'Create community'}
+          {formOpen ? text('Cancel') : text('Create community')}
         </Button>
       </header>
 
       {error && (
         <p className="text-sm text-destructive" role="alert">
-          {error}
+          {text(error)}
         </p>
       )}
       {formOpen && (
@@ -84,7 +91,7 @@ export function CommunityManager() {
           <CardContent>
             <form className="flex flex-col gap-4" onSubmit={form.handleSubmit(submit)}>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="community-name">Community name</Label>
+                <Label htmlFor="community-name">{text('Community name')}</Label>
                 <Input
                   aria-describedby={form.formState.errors.name ? 'community-name-error' : undefined}
                   aria-invalid={Boolean(form.formState.errors.name)}
@@ -95,12 +102,12 @@ export function CommunityManager() {
                 />
                 {form.formState.errors.name?.message && (
                   <p className="text-xs font-medium text-destructive" id="community-name-error">
-                    {form.formState.errors.name.message}
+                    {text(form.formState.errors.name.message)}
                   </p>
                 )}
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="community-description">Description</Label>
+                <Label htmlFor="community-description">{text('Description')}</Label>
                 <Textarea
                   className="min-h-24 rounded-xl bg-background/70 px-3 py-2.5"
                   id="community-description"
@@ -114,17 +121,21 @@ export function CommunityManager() {
                   disabled={create.isPending}
                   type="submit"
                 >
-                  {create.isPending ? 'Creating…' : 'Create community'}
+                  {create.isPending ? text('Creating…') : text('Create community')}
                 </Button>
               </div>
             </form>
           </CardContent>
         </Card>
       )}
-      {communities.isPending && <Status>Loading communities…</Status>}
-      {communities.isError && <Status role="alert">Could not load communities. {communities.error.message}</Status>}
+      {communities.isPending && <Status>{text('Loading communities…')}</Status>}
+      {communities.isError && (
+        <Status role="alert">
+          {text('Could not load communities.')} {text(communities.error.message)}
+        </Status>
+      )}
       {communities.isSuccess && communities.data.data.length === 0 && (
-        <Status>You have not joined any communities yet.</Status>
+        <Status>{text('You have not joined any communities yet.')}</Status>
       )}
       {communities.isSuccess &&
         communities.data.data.map((community) => (
@@ -137,11 +148,11 @@ export function CommunityManager() {
               <CardContent className="flex-row items-start gap-4">
                 <Users aria-hidden="true" className="mt-1 size-5 shrink-0 text-primary" />
                 <span className="min-w-0 flex-1">
-                  <span className="font-medium">{community.conversation.name ?? 'Community'}</span>
+                  <span className="font-medium">{community.conversation.name ?? text('Community')}</span>
                   <span className="mt-1 block text-sm text-muted-foreground">
-                    {community.description || 'No description'}
+                    {community.description || text('No description')}
                   </span>
-                  <span className="mt-2 block text-xs text-muted-foreground">Joined community</span>
+                  <span className="mt-2 block text-xs text-muted-foreground">{text('Joined community')}</span>
                 </span>
               </CardContent>
             </Card>

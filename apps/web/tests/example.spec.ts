@@ -291,14 +291,6 @@ test('conversation sends text through the authenticated same-origin API', async 
             created_at: '2026-11-16T10:00:00.000Z',
             sender: { id: 'u1', username: 'alex', name: 'Alex', avatar_url: null },
             attachments: [],
-            receipts: [
-              {
-                message_id: 'm1',
-                user_id: 'u2',
-                delivered_at: receiptStatus === 'sent' ? null : '2026-11-17T10:00:00.000Z',
-                read_at: receiptStatus === 'read' ? '2026-11-17T10:00:01.000Z' : null,
-              },
-            ],
           },
         }),
       });
@@ -322,6 +314,14 @@ test('conversation sends text through the authenticated same-origin API', async 
                   created_at: '2026-11-16T10:00:00.000Z',
                   sender: { id: 'u1', username: 'alex', name: 'Alex', avatar_url: null },
                   attachments: [],
+                  receipts: [
+                    {
+                      message_id: 'm1',
+                      user_id: 'u2',
+                      delivered_at: receiptStatus === 'sent' ? null : '2026-11-17T10:00:00.000Z',
+                      read_at: receiptStatus === 'read' ? '2026-11-17T10:00:01.000Z' : null,
+                    },
+                  ],
                 },
               ]
             : [],

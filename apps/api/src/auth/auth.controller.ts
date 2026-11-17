@@ -68,22 +68,20 @@ export class AuthController {
 
   @Post('login')
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
-  @ApiEndpoint('Sign in with email or username and password')
-  @ResponseMessage('User logged in successfully')
-  login(@Body() body: LoginDto, @Req() request: Request) {
-    return this.authService.login(body, {
-      ipAddress: request.ip,
-      userAgent: request.get('user-agent'),
-    });
+  @ApiEndpoint('Validate credentials and send a login code')
+  @ResponseMessage('Login code sent')
+  login(@Body() body: LoginDto) {
+    return this.authService.login(body);
   }
 
   @Post('login/otp/request')
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
-  @ApiEndpoint('Request a passwordless email login code')
-  @ResponseMessage('If the account exists, a login code has been sent')
+  @ApiEndpoint('Validate credentials and request a login code')
+  @ResponseMessage('Login code sent')
   requestLoginOtp(@Body() body: RequestLoginOtpDto) {
     return this.authService.requestLoginOtp(body);
   }

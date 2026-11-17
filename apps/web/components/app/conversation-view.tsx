@@ -11,6 +11,7 @@ import { MessageComposer } from '@/components/app/message-composer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useUiText } from '@/i18n/ui-text';
 import { apiRequest } from '@/lib/client/api';
 import { useCurrentUser } from '@/lib/client/use-current-user';
 
@@ -35,6 +36,7 @@ type Message = {
 type MessagePage = { items: Message[]; nextCursor: string | null; hasMore: boolean };
 
 export function ConversationView({ conversationId }: { conversationId: string }) {
+  const text = useUiText();
   const { data: currentUser } = useCurrentUser();
   const [isVisible, setIsVisible] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
@@ -87,11 +89,11 @@ export function ConversationView({ conversationId }: { conversationId: string })
           setReceiptError(null);
         } catch (reason) {
           acknowledged.current.delete(`${currentUser.id}:${message.id}`);
-          setReceiptError(reason instanceof Error ? reason.message : 'Could not mark messages as read.');
+          setReceiptError(reason instanceof Error ? reason.message : text('Could not mark messages as read.'));
         }
       }
     });
-  }, [currentUser, isVisible, orderedMessages]);
+  }, [currentUser, isVisible, orderedMessages, text]);
   const otherMember = currentUser
     ? conversation.data?.members.find(({ user_id }) => user_id !== currentUser.id)?.user
     : undefined;
@@ -99,13 +101,13 @@ export function ConversationView({ conversationId }: { conversationId: string })
     conversation.data?.group?.name ||
     conversation.data?.name ||
     otherMember?.name ||
-    (conversation.data?.type === 'private' ? 'Direct message' : 'Conversation');
+    (conversation.data?.type === 'private' ? text('Direct message') : text('Conversation'));
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background">
       <header className="flex items-center gap-3 border-b bg-muted/50 px-4 py-3 md:px-6">
         <Button
-          aria-label="Back to conversations"
+          aria-label={text('Back to conversations')}
           className="md:hidden"
           nativeButton={false}
           render={<Link href="/chat" />}
@@ -123,7 +125,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-semibold">{conversation.isPending ? 'Loading conversation…' : title}</h1>
+          <h1 className="truncate font-semibold">{conversation.isPending ? text('Loading conversation…') : title}</h1>
           <p className="truncate text-xs text-muted-foreground">
             {otherMember
               ? `@${otherMember.username}`
@@ -140,14 +142,18 @@ export function ConversationView({ conversationId }: { conversationId: string })
       )}
 
       <section
-        aria-label="Messages"
+        aria-label={text('Messages')}
         aria-live="polite"
         className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#efeae2] px-4 py-5 md:px-10 dark:bg-[#0b141a]"
       >
-        {messages.isPending && <Status>Loading messages…</Status>}
-        {messages.isError && <Status role="alert">Could not load messages. {messages.error.message}</Status>}
+        {messages.isPending && <Status>{text('Loading messages…')}</Status>}
+        {messages.isError && (
+          <Status role="alert">
+            {text('Could not load messages.')} {text(messages.error.message)}
+          </Status>
+        )}
         {messages.isSuccess && orderedMessages.length === 0 && (
-          <Status>No messages yet. Send the first message.</Status>
+          <Status>{text('No messages yet. Send the first message.')}</Status>
         )}
         {messages.isSuccess && orderedMessages.length > 0 && (
           <div className="mt-auto flex flex-col gap-3">
@@ -160,7 +166,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
                 variant="outline"
               >
                 <ArrowDown aria-hidden="true" />
-                {messages.isFetchingNextPage ? 'Loading…' : 'Load earlier messages'}
+                {messages.isFetchingNextPage ? text('Loading…') : text('Load earlier messages')}
               </Button>
             )}
             {orderedMessages.map((message) => {
@@ -176,7 +182,8 @@ export function ConversationView({ conversationId }: { conversationId: string })
                   >
                     {!isOwn && <p className="mb-1 text-xs font-medium">{message.sender.name}</p>}
                     <p className="text-sm break-words whitespace-pre-wrap">
-                      {message.content || (message.attachments.length ? 'Shared attachment' : 'Shared content')}
+                      {message.content ||
+                        (message.attachments.length ? text('Shared attachment') : text('Shared content'))}
                     </p>
                     {message.attachments.length > 0 && (
                       <ul className="mt-2 flex flex-col gap-1">
@@ -188,7 +195,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
                               rel="noreferrer"
                               target="_blank"
                             >
-                              {attachment.file_name || 'Download attachment'}
+                              {attachment.file_name || text('Download attachment')}
                             </a>
                           </li>
                         ))}
@@ -200,8 +207,8 @@ export function ConversationView({ conversationId }: { conversationId: string })
                       </time>
                       {isOwn && (
                         <span
-                          aria-label={isRead ? 'Read' : isDelivered ? 'Delivered' : 'Sent'}
-                          title={isRead ? 'Read' : isDelivered ? 'Delivered' : 'Sent'}
+                          aria-label={isRead ? text('Read') : isDelivered ? text('Delivered') : text('Sent')}
+                          title={isRead ? text('Read') : isDelivered ? text('Delivered') : text('Sent')}
                         >
                           {isRead || isDelivered ? (
                             <CheckCheck
@@ -224,12 +231,13 @@ export function ConversationView({ conversationId }: { conversationId: string })
 
       {conversation.isError && (
         <p className="border-t px-4 py-3 text-sm text-destructive" role="alert">
-          Could not load this conversation. {conversation.error.message}
+          {text('Could not load this conversation.')}
+          {text(conversation.error.message)}
         </p>
       )}
       {receiptError && (
         <p className="border-t px-4 py-2 text-xs text-destructive" role="alert">
-          {receiptError}
+          {text(receiptError)}
         </p>
       )}
       <footer className="border-t bg-muted/50 p-3 md:px-6">

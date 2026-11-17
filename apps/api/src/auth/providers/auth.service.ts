@@ -55,16 +55,20 @@ export class AuthService {
     return await this.verificationTokenProvider.resend(body.email);
   }
 
-  async login(body: LoginDto, context: AuthRequestContext) {
-    return this.loginUserProvider.login(body, context);
+  async login(body: LoginDto) {
+    return this.loginUserProvider.login(body);
   }
 
   async requestLoginOtp(body: RequestLoginOtpDto) {
-    return this.loginOtpProvider.request(body.email);
+    return this.loginUserProvider.login(body);
   }
 
   async verifyLoginOtp(body: VerifyLoginOtpDto, context: AuthRequestContext) {
-    return this.loginOtpProvider.verify(body.email, body.code, context);
+    return this.loginOtpProvider.verify(
+      body.challengeToken,
+      body.code,
+      context,
+    );
   }
 
   async refresh(refreshToken: string) {

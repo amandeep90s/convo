@@ -12,6 +12,7 @@ import { AuthCard, AuthError, AuthFieldError, AuthSuccess } from '@/components/a
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useUiText } from '@/i18n/ui-text';
 
 const resetPasswordFormSchema = resetPasswordSchema
   .extend({ confirmPassword: z.string().min(1, 'Confirm password is required') })
@@ -21,6 +22,7 @@ const resetPasswordFormSchema = resetPasswordSchema
   });
 
 export function ResetPasswordForm({ token }: { token: string }) {
+  const text = useUiText();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [complete, setComplete] = useState(false);
@@ -42,12 +44,12 @@ export function ResetPasswordForm({ token }: { token: string }) {
       });
       const payload = (await response.json()) as { success?: boolean; message?: string };
       if (!response.ok || !payload.success) {
-        setError(payload.message ?? 'Could not reset your password.');
+        setError(payload.message ?? text('Could not reset your password.'));
         return;
       }
       setComplete(true);
     } catch {
-      setError('Could not reach the authentication service. Please try again.');
+      setError(text('Could not reach the authentication service. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -55,8 +57,8 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
   return (
     <AuthCard
-      title="Choose a new password"
-      description="Use a strong password you have not used before."
+      title={text('Choose a new password')}
+      description={text('Use a strong password you have not used before.')}
       footer={
         <Link className="font-medium text-foreground underline underline-offset-4" href="/login">
           Return to sign in
@@ -65,19 +67,19 @@ export function ResetPasswordForm({ token }: { token: string }) {
     >
       {complete ? (
         <div className="flex flex-col gap-4">
-          <AuthSuccess>Password updated. Your other sessions have been signed out.</AuthSuccess>
+          <AuthSuccess>{text('Password updated. Your other sessions have been signed out.')}</AuthSuccess>
           <Button
             className="h-11 rounded-xl bg-gradient-to-r from-[#087e64] to-[#12a178] font-semibold shadow-lg shadow-primary/20 hover:brightness-105"
             onClick={() => router.replace('/login')}
             type="button"
           >
-            Sign in with your new password
+            {text('Sign in with your new password')}
           </Button>
         </div>
       ) : token ? (
         <form className="flex flex-col gap-4" onSubmit={form.handleSubmit(submit)}>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="password">New password</Label>
+            <Label htmlFor="password">{text('New password')}</Label>
             <Input
               autoComplete="new-password"
               id="password"
@@ -90,7 +92,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
             <AuthFieldError id="password" message={form.formState.errors.password?.message} />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="confirmPassword">Confirm new password</Label>
+            <Label htmlFor="confirmPassword">{text('Confirm new password')}</Label>
             <Input
               autoComplete="new-password"
               id="confirmPassword"
@@ -102,17 +104,17 @@ export function ResetPasswordForm({ token }: { token: string }) {
             />
             <AuthFieldError id="confirmPassword" message={form.formState.errors.confirmPassword?.message} />
           </div>
-          {error && <AuthError>{error}</AuthError>}
+          {error && <AuthError>{text(error)}</AuthError>}
           <Button
             className="h-11 rounded-xl bg-gradient-to-r from-[#087e64] to-[#12a178] font-semibold shadow-lg shadow-primary/20 hover:brightness-105"
             disabled={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? 'Updating…' : 'Update password'}
+            {isSubmitting ? text('Updating…') : text('Update password')}
           </Button>
         </form>
       ) : (
-        <AuthError>This password reset link is missing its token. Request a new link to continue.</AuthError>
+        <AuthError>{text('This password reset link is missing its token. Request a new link to continue.')}</AuthError>
       )}
     </AuthCard>
   );

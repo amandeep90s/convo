@@ -15,10 +15,12 @@ import { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 
 import { Button } from '@/components/ui/button';
+import { useUiText } from '@/i18n/ui-text';
 import { apiRequest } from '@/lib/client/api';
 import { useCurrentUser } from '@/lib/client/use-current-user';
 
-export function RealtimeUpdates() {
+export function RealtimeUpdates({ onNotification }: { onNotification: (message: RealtimeMessage) => void }) {
+  const text = useUiText();
   const { data: user } = useCurrentUser();
   const userId = user?.id;
   const queryClient = useQueryClient();
@@ -44,7 +46,7 @@ export function RealtimeUpdates() {
 
     function reportError(reason: unknown) {
       if (!disposed) {
-        setActionError(reason instanceof Error ? reason.message : 'Could not update message delivery.');
+        setActionError(reason instanceof Error ? reason.message : text('Could not update message delivery.'));
       }
     }
 
@@ -82,7 +84,7 @@ export function RealtimeUpdates() {
         socket.connect();
       } catch (reason) {
         if (disposed) return;
-        setConnectionError(reason instanceof Error ? reason.message : 'Could not connect to live updates.');
+        setConnectionError(reason instanceof Error ? reason.message : text('Could not connect to live updates.'));
         reconnect();
       }
     }
@@ -106,13 +108,15 @@ export function RealtimeUpdates() {
       });
       socket.on('connect_error', (reason) => {
         setConnectionError(
-          `Live updates unavailable: ${reason.message}. Retrying; messages still refresh periodically.`,
+          text('Live updates unavailable: {value0}. Retrying; messages still refresh periodically.', {
+            value0: reason.message,
+          }),
         );
         reconnect();
       });
       socket.on('disconnect', () => {
         if (disposed) return;
-        setConnectionError('Live updates disconnected. Reconnecting; messages still refresh periodically.');
+        setConnectionError(text('Live updates disconnected. Reconnecting; messages still refresh periodically.'));
         reconnect();
       });
       socket.on('message:created', (message) => {
@@ -133,6 +137,7 @@ export function RealtimeUpdates() {
         const viewingChat =
           pathnameRef.current === `/chat/${message.conversation_id}` && document.visibilityState === 'visible';
         if (viewingChat) return;
+        onNotification(message);
         setNotification(message);
         if (
           'Notification' in window &&
@@ -141,7 +146,7 @@ export function RealtimeUpdates() {
         ) {
           try {
             const alert = new Notification(message.sender.name, {
-              body: message.content || 'Shared an attachment',
+              body: message.content || text('Shared an attachment'),
               tag: message.id,
             });
             alert.onclick = () => {
@@ -178,20 +183,20 @@ export function RealtimeUpdates() {
       socket?.removeAllListeners();
       socket?.disconnect();
     };
-  }, [userId, queryClient]);
+  }, [userId, queryClient, onNotification, text]);
 
   return (
     <>
       {connectionError && (
         <p className="border-b bg-muted px-4 py-2 text-xs text-muted-foreground" role="status">
-          {connectionError}
+          {text(connectionError)}
         </p>
       )}
       {actionError && (
         <div className="flex items-center justify-between border-b px-4 py-2 text-xs text-destructive" role="alert">
-          {actionError}
+          {text(actionError)}
           <Button
-            aria-label="Dismiss live update error"
+            aria-label={text('Dismiss live update error')}
             onClick={() => setActionError(null)}
             size="icon"
             variant="ghost"
@@ -202,7 +207,7 @@ export function RealtimeUpdates() {
       )}
       {notification && (
         <aside
-          aria-label="New message"
+          aria-label={text('New message')}
           className="fixed right-4 bottom-4 z-50 flex max-w-sm items-start gap-3 rounded-2xl border bg-background p-4 shadow-xl"
           role="status"
         >
@@ -213,10 +218,15 @@ export function RealtimeUpdates() {
           >
             <span className="block font-semibold">{notification.sender.name}</span>
             <span className="line-clamp-2 block text-sm text-muted-foreground">
-              {notification.content || 'Shared an attachment'}
+              {notification.content || text('Shared an attachment')}
             </span>
           </Link>
-          <Button aria-label="Dismiss notification" onClick={() => setNotification(null)} size="icon" variant="ghost">
+          <Button
+            aria-label={text('Dismiss notification')}
+            onClick={() => setNotification(null)}
+            size="icon"
+            variant="ghost"
+          >
             <X aria-hidden="true" />
           </Button>
         </aside>

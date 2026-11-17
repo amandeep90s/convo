@@ -6,8 +6,10 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { useUiText } from '@/i18n/ui-text';
 
 export function LogoutButton({ iconOnly = false }: { iconOnly?: boolean }) {
+  const text = useUiText();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -20,14 +22,14 @@ export function LogoutButton({ iconOnly = false }: { iconOnly?: boolean }) {
       const response = await fetch('/api/auth/logout', { method: 'POST' });
       const payload = (await response.json()) as { success?: boolean; message?: string };
       if (!response.ok || !payload.success) {
-        setError(payload.message ?? 'Could not sign out.');
+        setError(payload.message ?? text('Could not sign out.'));
         return;
       }
       queryClient.clear();
       router.replace('/login');
       router.refresh();
     } catch {
-      setError('Could not reach the sign-out service.');
+      setError(text('Could not reach the sign-out service.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -36,7 +38,7 @@ export function LogoutButton({ iconOnly = false }: { iconOnly?: boolean }) {
   return (
     <div>
       <Button
-        aria-label={iconOnly ? 'Sign out' : undefined}
+        aria-label={iconOnly ? text('Sign out') : undefined}
         className={iconOnly ? 'size-9' : 'w-full justify-start'}
         disabled={isSubmitting}
         onClick={logout}
@@ -45,11 +47,11 @@ export function LogoutButton({ iconOnly = false }: { iconOnly?: boolean }) {
         variant="ghost"
       >
         <LogOut aria-hidden="true" />
-        {!iconOnly && (isSubmitting ? 'Signing out…' : 'Sign out')}
+        {!iconOnly && (isSubmitting ? text('Signing out…') : text('Sign out'))}
       </Button>
       {error && (
         <p aria-live="polite" className="mt-2 text-xs text-destructive" role="alert">
-          {error}
+          {text(error)}
         </p>
       )}
     </div>

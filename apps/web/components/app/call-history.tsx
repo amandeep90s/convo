@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { Card, CardContent } from '@/components/ui/card';
+import { useUiText } from '@/i18n/ui-text';
 import { apiRequest } from '@/lib/client/api';
 
 type Call = {
@@ -19,6 +20,7 @@ type Call = {
 type PageResponse<T> = { data: T[]; total: number };
 
 export function CallHistory() {
+  const text = useUiText();
   const calls = useQuery({
     queryKey: ['calls'],
     queryFn: () => apiRequest<PageResponse<Call>>('calls?page=1&limit=50'),
@@ -28,16 +30,21 @@ export function CallHistory() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight">Calls</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Review call session history and participants.</p>
+        <h1 className="text-3xl font-semibold tracking-tight">{text('Calls')}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{text('Review call session history and participants.')}</p>
       </header>
       <p className="rounded-lg border bg-background p-4 text-sm text-muted-foreground">
-        This web client can display and update call session state, but it does not yet include audio/video media
-        transport.
+        {text(
+          'This web client can display and update call session state, but it does not yet include audio/video media transport.',
+        )}
       </p>
-      {calls.isPending && <Status>Loading call history…</Status>}
-      {calls.isError && <Status role="alert">Could not load calls. {calls.error.message}</Status>}
-      {calls.isSuccess && calls.data.data.length === 0 && <Status>No call history yet.</Status>}
+      {calls.isPending && <Status>{text('Loading call history…')}</Status>}
+      {calls.isError && (
+        <Status role="alert">
+          {text('Could not load calls.')} {text(calls.error.message)}
+        </Status>
+      )}
+      {calls.isSuccess && calls.data.data.length === 0 && <Status>{text('No call history yet.')}</Status>}
       {calls.isSuccess &&
         calls.data.data.map((call) => (
           <Link
@@ -55,10 +62,10 @@ export function CallHistory() {
                   )}
                   <div className="min-w-0">
                     <p className="font-medium capitalize">
-                      {call.type} call · {call.status}
+                      {text(call.type)} {text('call ·')} {text(call.status)}
                     </p>
                     <p className="truncate text-sm text-muted-foreground">
-                      {call.participants.map(({ user }) => user.name).join(', ') || 'Participants unavailable'}
+                      {call.participants.map(({ user }) => user.name).join(', ') || text('Participants unavailable')}
                     </p>
                   </div>
                 </div>

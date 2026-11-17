@@ -7,6 +7,7 @@ import { type ReactNode, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useUiText } from '@/i18n/ui-text';
 import { ApiError, apiRequest } from '@/lib/client/api';
 
 type Device = Pick<TUserDevice, 'id' | 'user_id' | 'device_type' | 'device_name' | 'last_seen_at' | 'created_at'> & {
@@ -14,6 +15,7 @@ type Device = Pick<TUserDevice, 'id' | 'user_id' | 'device_type' | 'device_name'
 };
 
 export function DeviceManager() {
+  const text = useUiText();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const devices = useQuery({
@@ -30,26 +32,30 @@ export function DeviceManager() {
         queryClient.invalidateQueries({ queryKey: ['user-sessions'] }),
       ]);
     },
-    onError: (reason) => setError(reason instanceof ApiError ? reason.message : 'Could not revoke this device.'),
+    onError: (reason) => setError(reason instanceof ApiError ? reason.message : text('Could not revoke this device.')),
   });
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
       <header>
-        <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">Account center</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Devices</h1>
+        <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">{text('Account center')}</p>
+        <h1 className="text-3xl font-semibold tracking-tight">{text('Devices')}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Review devices registered to your account and revoke access you no longer need.
+          {text('Review devices registered to your account and revoke access you no longer need.')}
         </p>
       </header>
       {error && (
         <p className="text-sm text-destructive" role="alert">
-          {error}
+          {text(error)}
         </p>
       )}
-      {devices.isPending && <Status>Loading registered devices…</Status>}
-      {devices.isError && <Status role="alert">Could not load registered devices. {devices.error.message}</Status>}
-      {devices.isSuccess && devices.data.length === 0 && <Status>No registered devices found.</Status>}
+      {devices.isPending && <Status>{text('Loading registered devices…')}</Status>}
+      {devices.isError && (
+        <Status role="alert">
+          {text('Could not load registered devices.')} {text(devices.error.message)}
+        </Status>
+      )}
+      {devices.isSuccess && devices.data.length === 0 && <Status>{text('No registered devices found.')}</Status>}
       {devices.isSuccess &&
         devices.data.map((device) => (
           <Card key={device.id}>
@@ -59,9 +65,12 @@ export function DeviceManager() {
                 <div className="min-w-0">
                   <p className="truncate font-medium">{device.device_name || device.device_type}</p>
                   <p className="text-sm text-muted-foreground">
-                    Last active {device.last_seen_at ? formatDate(device.last_seen_at) : 'not available'}
+                    {text('Last active')}
+                    {device.last_seen_at ? formatDate(device.last_seen_at) : text('not available')}
                   </p>
-                  <p className="text-xs text-muted-foreground">{device.sessions.length} active session(s)</p>
+                  <p className="text-xs text-muted-foreground">
+                    {device.sessions.length} {text('active session(s)')}
+                  </p>
                 </div>
               </div>
               <Button
@@ -70,13 +79,15 @@ export function DeviceManager() {
                 type="button"
                 variant="outline"
               >
-                Revoke
+                {text('Revoke')}
               </Button>
             </CardContent>
           </Card>
         ))}
       <p className="text-xs text-muted-foreground">
-        Device enrollment is managed during sign-in; manual registration is not available in this web interface.
+        {text(
+          'Device enrollment is managed during sign-in; manual registration is not available in this web interface.',
+        )}
       </p>
     </div>
   );

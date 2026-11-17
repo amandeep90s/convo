@@ -2,6 +2,8 @@ import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import type { LoginChallenge } from '@repo/shared';
 
 import type { AuthRequestContext } from '@/auth/providers/session.provider';
 import { SessionProvider } from '@/auth/providers/session.provider';
@@ -20,9 +22,10 @@ export class LoginOtpProvider {
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
     private readonly sessionProvider: SessionProvider,
+    private readonly jwtService: JwtService,
   ) {}
 
-  async request(email: string): Promise<{ accepted: true }> {
+  async request(email: string): Promise<LoginChallenge> {
     const user = await this.prisma.user.findFirst({
       where: {
         email,
@@ -32,18 +35,25 @@ export class LoginOtpProvider {
       },
       select: { id: true, email: true, name: true },
     });
-    if (!user) return { accepted: true };
+    if (!user) throw new UnauthorizedException('Invalid credentials');
 
     const now = new Date();
     const existing = await this.prisma.loginOtp.findUnique({
       where: { user_id: user.id },
-      select: { created_at: true },
+      select: {
+        created_at: true,
+        code_hash: true,
+        expires_at: true,
+        attempts: true,
+      },
     });
     if (
       existing &&
+      existing.expires_at > now &&
+      existing.attempts < OTP_MAX_ATTEMPTS &&
       now.getTime() - existing.created_at.getTime() < OTP_RESEND_COOLDOWN_MS
     ) {
-      return { accepted: true };
+      return this.challenge(user.id, user.email, existing.code_hash);
     }
 
     const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
@@ -68,13 +78,48 @@ export class LoginOtpProvider {
       code,
       `${OTP_LIFETIME_MINUTES} minutes`,
     );
-    return { accepted: true };
+    return this.challenge(user.id, user.email, this.hashCode(user.id, code));
   }
 
-  async verify(email: string, code: string, context: AuthRequestContext) {
+  private async challenge(
+    userId: string,
+    email: string,
+    codeHash: string,
+  ): Promise<LoginChallenge> {
+    return {
+      email,
+      challengeToken: await this.jwtService.signAsync(
+        { sub: userId, type: 'login-challenge', otp: codeHash },
+        { expiresIn: OTP_LIFETIME_MINUTES * 60 },
+      ),
+    };
+  }
+
+  async verify(
+    challengeToken: string,
+    code: string,
+    context: AuthRequestContext,
+  ) {
+    let challenge: { sub: string; type: string; otp: string };
+    try {
+      challenge = await this.jwtService.verifyAsync(challengeToken, {
+        secret: this.configService.getOrThrow<string>('JWT_SECRET'),
+        audience: this.configService.getOrThrow<string>('JWT_TOKEN_AUDIENCE'),
+        issuer: this.configService.getOrThrow<string>('JWT_TOKEN_ISSUER'),
+      });
+    } catch {
+      throw this.invalidCode();
+    }
+    if (
+      challenge.type !== 'login-challenge' ||
+      typeof challenge.sub !== 'string' ||
+      typeof challenge.otp !== 'string'
+    ) {
+      throw this.invalidCode();
+    }
     const user = await this.prisma.user.findFirst({
       where: {
-        email,
+        id: challenge.sub,
         email_verified_at: { not: null },
         status: 'active',
         deleted_at: null,
@@ -96,11 +141,17 @@ export class LoginOtpProvider {
     });
     if (
       !otp ||
+      otp.code_hash !== challenge.otp ||
       otp.expires_at <= now ||
       otp.attempts >= OTP_MAX_ATTEMPTS ||
       !this.matchesCode(user.id, code, otp.code_hash)
     ) {
-      if (otp && otp.expires_at > now && otp.attempts < OTP_MAX_ATTEMPTS) {
+      if (
+        otp &&
+        otp.code_hash === challenge.otp &&
+        otp.expires_at > now &&
+        otp.attempts < OTP_MAX_ATTEMPTS
+      ) {
         await this.prisma.loginOtp.updateMany({
           where: {
             user_id: user.id,

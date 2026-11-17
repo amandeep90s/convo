@@ -6,6 +6,7 @@ import { type ReactNode, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useUiText } from '@/i18n/ui-text';
 import { ApiError, apiRequest } from '@/lib/client/api';
 import { useCurrentUser } from '@/lib/client/use-current-user';
 
@@ -22,6 +23,7 @@ type Community = {
 type Invite = { code: string };
 
 export function CommunityView({ communityId }: { communityId: string }) {
+  const text = useUiText();
   const { data: currentUser } = useCurrentUser();
   const [error, setError] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
@@ -42,7 +44,7 @@ export function CommunityView({ communityId }: { communityId: string }) {
       });
       setInviteUrl(`${window.location.origin}/invite/${invite.code}`);
     } catch (reason) {
-      setError(reason instanceof ApiError ? reason.message : 'Could not create an invite.');
+      setError(reason instanceof ApiError ? reason.message : text('Could not create an invite.'));
     }
   }
 
@@ -52,7 +54,7 @@ export function CommunityView({ communityId }: { communityId: string }) {
       await navigator.clipboard.writeText(inviteUrl);
       setCopied(true);
     } catch {
-      setError('Could not copy the invite link. Select and copy it manually.');
+      setError(text('Could not copy the invite link. Select and copy it manually.'));
     }
   }
 
@@ -63,16 +65,22 @@ export function CommunityView({ communityId }: { communityId: string }) {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight">{community.data?.conversation.name ?? 'Community'}</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          {community.data?.conversation.name ?? text('Community')}
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {community.data?.description || 'No community description.'}
+          {community.data?.description || text('No community description.')}
         </p>
       </header>
-      {community.isPending && <Status>Loading community…</Status>}
-      {community.isError && <Status role="alert">Could not load this community. {community.error.message}</Status>}
+      {community.isPending && <Status>{text('Loading community…')}</Status>}
+      {community.isError && (
+        <Status role="alert">
+          {text('Could not load this community.')} {text(community.error.message)}
+        </Status>
+      )}
       {error && (
         <p className="text-sm text-destructive" role="alert">
-          {error}
+          {text(error)}
         </p>
       )}
       {community.data && (
@@ -80,24 +88,26 @@ export function CommunityView({ communityId }: { communityId: string }) {
           {isAdmin && (
             <Card>
               <CardHeader>
-                <CardTitle>Invite members</CardTitle>
+                <CardTitle>{text('Invite members')}</CardTitle>
               </CardHeader>
               <CardContent className="gap-3">
-                <p className="text-sm text-muted-foreground">Create a shareable invite link for this community.</p>
+                <p className="text-sm text-muted-foreground">
+                  {text('Create a shareable invite link for this community.')}
+                </p>
                 <div className="flex flex-wrap gap-2">
                   <Button onClick={() => void createInvite()} type="button" variant="outline">
                     <Link2 aria-hidden="true" />
-                    Create invite link
+                    {text('Create invite link')}
                   </Button>
                   {inviteUrl && (
                     <Button onClick={() => void copyInvite()} type="button" variant="outline">
                       {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-                      {copied ? 'Copied' : 'Copy link'}
+                      {copied ? text('Copied') : text('Copy link')}
                     </Button>
                   )}
                 </div>
                 {inviteUrl && (
-                  <p className="rounded-md bg-muted p-3 text-xs break-all" aria-label="Community invite link">
+                  <p className="rounded-md bg-muted p-3 text-xs break-all" aria-label={text('Community invite link')}>
                     {inviteUrl}
                   </p>
                 )}
@@ -108,7 +118,8 @@ export function CommunityView({ communityId }: { communityId: string }) {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users aria-hidden="true" className="size-4" />
-                Members ({community.data.conversation.members.length})
+                {text('Members (')}
+                {community.data.conversation.members.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -118,7 +129,7 @@ export function CommunityView({ communityId }: { communityId: string }) {
                     <p className="font-medium">{user.name}</p>
                     <p className="text-xs text-muted-foreground">@{user.username}</p>
                   </div>
-                  <span className="text-xs text-muted-foreground capitalize">{role}</span>
+                  <span className="text-xs text-muted-foreground capitalize">{text(role)}</span>
                 </div>
               ))}
             </CardContent>
