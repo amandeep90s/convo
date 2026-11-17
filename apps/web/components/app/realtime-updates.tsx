@@ -14,6 +14,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 
+import { useNotificationSound } from '@/components/app/notification-sound';
 import { Button } from '@/components/ui/button';
 import { useUiText } from '@/i18n/ui-text';
 import { apiRequest } from '@/lib/client/api';
@@ -21,6 +22,7 @@ import { useCurrentUser } from '@/lib/client/use-current-user';
 
 export function RealtimeUpdates({ onNotification }: { onNotification: (message: RealtimeMessage) => void }) {
   const text = useUiText();
+  const { play: playSound } = useNotificationSound();
   const { data: user } = useCurrentUser();
   const userId = user?.id;
   const queryClient = useQueryClient();
@@ -103,6 +105,7 @@ export function RealtimeUpdates({ onNotification }: { onNotification: (message: 
         void Promise.all([
           queryClient.invalidateQueries({ queryKey: ['conversations'] }),
           queryClient.invalidateQueries({ queryKey: ['messages'] }),
+          queryClient.invalidateQueries({ queryKey: ['conversation'] }),
           queryClient.invalidateQueries({ queryKey: ['user-settings'] }),
         ]).catch(reportError);
       });
@@ -139,6 +142,13 @@ export function RealtimeUpdates({ onNotification }: { onNotification: (message: 
         if (viewingChat) return;
         onNotification(message);
         setNotification(message);
+        try {
+          playSound();
+        } catch {
+          setActionError(
+            text('Could not enable or play notification sound. Check your browser permissions and storage settings.'),
+          );
+        }
         if (
           'Notification' in window &&
           Notification.permission === 'granted' &&
@@ -148,6 +158,7 @@ export function RealtimeUpdates({ onNotification }: { onNotification: (message: 
             const alert = new Notification(message.sender.name, {
               body: message.content || text('Shared an attachment'),
               tag: message.id,
+              silent: true,
             });
             alert.onclick = () => {
               window.focus();
@@ -165,6 +176,12 @@ export function RealtimeUpdates({ onNotification }: { onNotification: (message: 
       socket.on('message:receipt', refreshConversation);
       socket.on('message:reaction', refreshConversation);
       socket.on('conversation:updated', refreshConversation);
+      socket.on('presence:updated', () => {
+        void Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['conversations'] }),
+          queryClient.invalidateQueries({ queryKey: ['conversation'] }),
+        ]).catch(reportError);
+      });
       const refreshCalls = () => {
         void Promise.all([
           queryClient.invalidateQueries({ queryKey: ['calls'] }),
@@ -183,7 +200,7 @@ export function RealtimeUpdates({ onNotification }: { onNotification: (message: 
       socket?.removeAllListeners();
       socket?.disconnect();
     };
-  }, [userId, queryClient, onNotification, text]);
+  }, [userId, queryClient, onNotification, text, playSound]);
 
   return (
     <>

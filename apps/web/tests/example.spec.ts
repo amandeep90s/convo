@@ -1,5 +1,52 @@
 import { expect, type Page, test, type WebSocketRoute } from '@playwright/test';
 
+declare global {
+  interface Window {
+    notificationSoundPlays: number;
+    notificationSoundTime: number;
+  }
+}
+
+async function mockNotificationAudio(page: Page) {
+  await page.addInitScript(() => {
+    window.notificationSoundPlays = 0;
+    window.notificationSoundTime = 0;
+    class TestAudioContext {
+      state = 'suspended';
+      destination = {};
+      get currentTime() {
+        return window.notificationSoundTime;
+      }
+      async resume() {
+        this.state = 'running';
+      }
+      async close() {
+        this.state = 'closed';
+      }
+      createOscillator() {
+        return {
+          type: 'sine',
+          frequency: { setValueAtTime() {} },
+          connect() {},
+          disconnect() {},
+          stop() {},
+          start() {
+            window.notificationSoundPlays++;
+          },
+        };
+      }
+      createGain() {
+        return {
+          gain: { setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} },
+          connect() {},
+          disconnect() {},
+        };
+      }
+    }
+    Object.defineProperty(window, 'AudioContext', { configurable: true, value: TestAudioContext });
+  });
+}
+
 async function signInAsTestUser(page: Page) {
   const sockets: WebSocketRoute[] = [];
   await page.route('**/api/backend/realtime/session', (route) =>
@@ -83,8 +130,21 @@ test('incoming socket messages refresh the recipient list and visible chat witho
   const sockets = await signInAsTestUser(page);
   let hasMessage = false;
   let hasAttachment = false;
+  let hasRead = false;
   const receipts: string[] = [];
-  const person = { id: 'u2', username: 'jordan', name: 'Jordan', avatar_url: null };
+  const person: {
+    id: string;
+    username: string;
+    name: string;
+    avatar_url: null;
+    presence: 'online' | 'offline' | null;
+  } = {
+    id: 'u2',
+    username: 'jordan',
+    name: 'Jordan',
+    avatar_url: null,
+    presence: 'offline',
+  };
   const message = {
     id: 'incoming-1',
     conversation_id: 'c1',
@@ -109,6 +169,7 @@ test('incoming socket messages refresh the recipient list and visible chat witho
                   name: null,
                   type: 'private',
                   last_message_at: message.created_at,
+                  unread_count: hasRead ? 0 : 1,
                   members: [
                     { user_id: 'u1', archived_at: null, starred_at: null, user: { id: 'u1', name: 'Alex' } },
                     { user_id: 'u2', archived_at: null, starred_at: null, user: person },
@@ -159,6 +220,7 @@ test('incoming socket messages refresh the recipient list and visible chat witho
   );
   await page.route('**/api/backend/message-receipts/**', (route) => {
     receipts.push(route.request().url());
+    if (route.request().url().endsWith('/read')) hasRead = true;
     return route.fulfill({ json: { success: true, statusCode: 200, message: 'Receipt saved', data: {} } });
   });
 
@@ -176,11 +238,24 @@ test('incoming socket messages refresh the recipient list and visible chat witho
   await expect(page.getByLabel('Unread notifications', { exact: true })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('link', { name: /Jordan/ }).first()).toBeVisible();
+  await expect(page.getByLabel('1 unread message', { exact: true })).toHaveText('1');
+  await expect(page.getByText('Offline', { exact: true })).toBeVisible();
+  person.presence = 'online';
+  sockets[0]!.send('42["presence:updated"]');
+  await expect(page.getByText('Online', { exact: true })).toBeVisible();
   await expect.poll(() => receipts.some((url) => url.endsWith('/incoming-1/delivered'))).toBe(true);
 
   await page.getByRole('status', { name: 'New message' }).getByRole('link').click();
   await expect(page.getByRole('region', { name: 'Messages' })).toContainText(message.content);
   await expect.poll(() => receipts.some((url) => url.endsWith('/incoming-1/read'))).toBe(true);
+  await expect(page.getByLabel('1 unread message', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Online', { exact: true })).toHaveCount(2);
+  person.presence = 'offline';
+  sockets[0]!.send('42["presence:updated"]');
+  await expect(page.getByText('Offline', { exact: true })).toHaveCount(2);
+  person.presence = null;
+  sockets[0]!.send('42["presence:updated"]');
+  await expect(page.locator('[data-presence]')).toHaveCount(0);
   hasAttachment = true;
   sockets[0]!.send(`42${JSON.stringify(['message:attachment', { conversation_id: 'c1', message_id: message.id }])}`);
   await expect(page.getByRole('link', { name: 'note.txt' })).toBeVisible();
@@ -207,6 +282,110 @@ test('home page renders the Convo application', async ({ page }) => {
   expect(protectedRequests).toBe(0);
 });
 
+test('notification sound is opt-in, previews, deduplicates messages and respects disabling', async ({ page }) => {
+  await mockNotificationAudio(page);
+  const sockets = await signInAsTestUser(page);
+  await page.goto('/settings/notifications');
+  await expect.poll(() => sockets.length).toBe(1);
+  const message = {
+    id: 'sound-1',
+    conversation_id: 'c1',
+    sender_id: 'u2',
+    type: 'text',
+    content: 'Sound test',
+    created_at: '2026-11-17T10:00:00.000Z',
+    sender: { id: 'u2', name: 'Jordan', username: 'jordan', avatar_url: null },
+    receipts: [],
+  };
+  sockets[0]!.send(`42${JSON.stringify(['message:notification', { ...message, id: 'before-opt-in' }])}`);
+  await expect(page.getByRole('status', { name: 'New message' })).toContainText('Sound test');
+  expect(await page.evaluate(() => window.notificationSoundPlays)).toBe(0);
+
+  await page.getByRole('button', { name: 'Enable notification sound' }).click();
+  await expect(page.getByRole('button', { name: 'Disable notification sound' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect.poll(() => page.evaluate(() => window.notificationSoundPlays)).toBe(1);
+  expect(await page.evaluate(() => localStorage.getItem('convo_notification_sound'))).toBe('true');
+  await page.evaluate(() => {
+    window.notificationSoundTime = 1;
+  });
+  sockets[0]!.send(`42${JSON.stringify(['message:created', message])}`);
+  sockets[0]!.send(`42${JSON.stringify(['message:notification', message])}`);
+  await expect.poll(() => page.evaluate(() => window.notificationSoundPlays)).toBe(2);
+  await page.evaluate(() => {
+    window.notificationSoundTime = 2;
+  });
+  sockets[0]!.send(`42${JSON.stringify(['message:notification', message])}`);
+  sockets[0]!.send(`42${JSON.stringify(['message:notification', { ...message, id: 'own-sound', sender_id: 'u1' }])}`);
+  // A following eligible alert proves that the duplicate and own-message events have been processed.
+  sockets[0]!.send(`42${JSON.stringify(['message:notification', { ...message, id: 'sound-2' }])}`);
+  await expect.poll(() => page.evaluate(() => window.notificationSoundPlays)).toBe(3);
+
+  await page.getByRole('button', { name: 'Disable notification sound' }).click();
+  await page.evaluate(() => {
+    window.notificationSoundTime = 3;
+  });
+  sockets[0]!.send(
+    `42${JSON.stringify(['message:notification', { ...message, id: 'disabled', content: 'Silent alert' }])}`,
+  );
+  await expect(page.getByRole('status', { name: 'New message' })).toContainText('Silent alert');
+  expect(await page.evaluate(() => window.notificationSoundPlays)).toBe(3);
+  expect(await page.evaluate(() => localStorage.getItem('convo_notification_sound'))).toBe('false');
+});
+
+test('saved sound waits for user interaction and account-disabled notifications remain silent', async ({ page }) => {
+  await mockNotificationAudio(page);
+  await page.addInitScript(() => localStorage.setItem('convo_notification_sound', 'true'));
+  const sockets = await signInAsTestUser(page);
+  await page.route('**/api/backend/conversations?*', (route) =>
+    route.fulfill({
+      json: { success: true, statusCode: 200, message: 'Loaded', data: { data: [], total: 0 } },
+    }),
+  );
+  await page.goto('/chat');
+  await expect.poll(() => sockets.length).toBe(1);
+  const message = {
+    id: 'locked-audio',
+    conversation_id: 'c1',
+    sender_id: 'u2',
+    content: 'Unlock test',
+    sender: { id: 'u2', name: 'Jordan' },
+  };
+  sockets[0]!.send(`42${JSON.stringify(['message:notification', message])}`);
+  await expect(page.getByRole('status', { name: 'New message' })).toContainText('Unlock test');
+  expect(await page.evaluate(() => window.notificationSoundPlays)).toBe(0);
+  await page.getByRole('button', { name: 'Notifications', exact: true }).click();
+  await page.keyboard.press('Escape');
+  sockets[0]!.send(`42${JSON.stringify(['message:notification', { ...message, id: 'unlocked-audio' }])}`);
+  await expect.poll(() => page.evaluate(() => window.notificationSoundPlays)).toBe(1);
+
+  await page.route('**/api/backend/user-settings', (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        statusCode: 200,
+        message: 'Loaded',
+        data: { notification_enabled: false, theme: 'system' },
+      },
+    }),
+  );
+  await Promise.all([
+    page.waitForResponse((response) => response.url().endsWith('/api/backend/user-settings') && response.ok()),
+    page.reload(),
+  ]);
+  await expect.poll(() => sockets.length).toBe(2);
+  await expect(page.getByRole('button', { name: 'Notifications', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Notifications', exact: true }).click();
+  await page.keyboard.press('Escape');
+  const delivered = page.waitForRequest((request) => request.url().endsWith('/account-disabled/delivered'));
+  sockets[1]!.send(`42${JSON.stringify(['message:notification', { ...message, id: 'account-disabled' }])}`);
+  sockets[1]!.send(`42${JSON.stringify(['message:created', { ...message, id: 'account-disabled' }])}`);
+  await delivered;
+  await expect(page.getByRole('status', { name: 'New message' })).toHaveCount(0);
+  expect(await page.evaluate(() => window.notificationSoundPlays)).toBe(0);
+});
 test('one credentials form advances to email OTP and redirects only after successful verification', async ({
   page,
 }) => {
@@ -536,6 +715,83 @@ test('message search exposes query and filter controls', async ({ page }) => {
   await expect(page.getByLabel('From date')).toBeVisible();
   await expect(page.getByLabel('To date')).toBeVisible();
   await expect(page.getByLabel('Attachment')).toBeVisible();
+});
+
+test('emoji picker replaces selected text, preserves the caret and enforces the message limit', async ({ page }) => {
+  await signInAsTestUser(page);
+  const sent: unknown[] = [];
+  await page.route('**/api/backend/conversations?*', (route) =>
+    route.fulfill({
+      json: { success: true, message: 'Conversations loaded', data: { data: [], total: 0 } },
+    }),
+  );
+  await page.route('**/api/backend/conversations/c1', (route) =>
+    route.fulfill({
+      json: {
+        success: true,
+        message: 'Conversation loaded',
+        data: {
+          id: 'c1',
+          type: 'private',
+          name: null,
+          group: null,
+          members: [
+            {
+              user_id: 'u2',
+              role: 'member',
+              user: {
+                id: 'u2',
+                username: 'jordan',
+                name: 'Jordan',
+                avatar_url: null,
+                presence: null,
+              },
+            },
+          ],
+        },
+      },
+    }),
+  );
+  await page.route('**/api/backend/messages**', (route) => {
+    if (route.request().method() === 'POST') {
+      sent.push(route.request().postDataJSON());
+      return route.fulfill({ json: { success: true, message: 'Message sent', data: { id: 'emoji-message' } } });
+    }
+    return route.fulfill({
+      json: { success: true, message: 'Messages loaded', data: { items: [], hasMore: false, nextCursor: null } },
+    });
+  });
+  await page.goto('/chat/c1');
+  const input = page.getByLabel('Write a message', { exact: true });
+  const trigger = page.getByRole('button', { name: 'Add emoji', exact: true });
+  async function pickGrinningFace() {
+    await trigger.click();
+    await page.getByLabel('Search emojis', { exact: true }).fill('grinning face');
+    await page.locator('button[data-epr-unified="1f600"]').first().click();
+  }
+  await input.fill('Hello Jordan!');
+  await input.press('Home');
+  for (let i = 0; i < 6; i++) await input.press('ArrowRight');
+  for (let i = 0; i < 6; i++) await input.press('Shift+ArrowRight');
+  await pickGrinningFace();
+  await expect(input).toHaveValue('Hello \u{1f600}!');
+  await expect(input).toBeFocused();
+  await input.press('ArrowLeft');
+  await pickGrinningFace();
+  await expect(input).toHaveValue('Hello \u{1f600}\u{1f600}!');
+  await page.getByRole('button', { name: 'Send message', exact: true }).click();
+  await expect(input).toHaveValue('');
+  expect(sent).toEqual([{ conversation_id: 'c1', type: 'text', content: 'Hello \u{1f600}\u{1f600}!' }]);
+
+  await input.fill('x'.repeat(9999));
+  await input.press('End');
+  await pickGrinningFace();
+  await page.keyboard.press('Escape');
+  await expect(input).toHaveValue('x'.repeat(9999));
+  await expect(page.getByRole('alert')).toContainText('Messages must be 10,000 characters or fewer.');
+  await trigger.click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByLabel('Search emojis', { exact: true })).toHaveCount(0);
 });
 
 test('message search submits filters and renders matching messages', async ({ page }) => {

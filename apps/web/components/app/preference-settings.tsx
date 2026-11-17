@@ -16,6 +16,7 @@ import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { z } from 'zod';
 
 import { BrowserNotifications } from '@/components/app/browser-notifications';
+import { NotificationSoundSettings } from '@/components/app/notification-sound';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -253,6 +254,7 @@ function PreferenceForm({
             registration={register('notification_enabled')}
           />
           <BrowserNotifications />
+          <NotificationSoundSettings />
         </>
       )}
       {section === 'chats' && (

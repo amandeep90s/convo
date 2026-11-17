@@ -63,6 +63,8 @@ Group/community creation makes the creator an admin. Membership and admin checks
 
 ## Messages and conversation features
 
+Conversation lists include `unread_count` per membership, excluding own, deleted, expired, pre-membership, and already-read messages. Counts use `last_read_message_id`, independent of read-receipt sharing. List and detail member users include `presence: "online" | "offline" | null` for private-chat peers. `null` means privacy-hidden or unavailable, not offline. Presence honors the subject's `online_visibility`, their contacts, and blocks in either direction, and requires a connected socket with a valid user/device session.
+
 | Method | Route | Purpose |
 | --- | --- | --- |
 | GET | `/messages?conversationId=&cursor=&limit=` | Read a cursor-paginated message history |
@@ -106,6 +108,8 @@ Client events:
 - `call:signal` with `{ "callId": "...", "targetUserId": "...", "type": "offer|answer|ice-candidate", "payload": ... }`
 
 Server events include `conversation:updated`, `message:created`, `message:updated`, `message:deleted`, `message:attachment`, `message:reaction`, `message:receipt`, `call:incoming`, `call:updated`, and relayed `call:signal`. Conversation-scoped events include `conversation_id`.
+
+The payload-less `presence:updated` event invalidates list/detail presence snapshots when a peer connects or disconnects. It is sent only to privacy-authorized private-chat peers. Snapshots check all connected sessions across the Redis adapter, so closing one tab does not mark a user offline while another remains connected. Clients also poll to recover from missed events, privacy changes, and session expiry.
 
 `message:notification` is sent separately to recipients with account notifications enabled, no active mute, and conversation policy `all`. `none` and `mentions_only` suppress generic alerts; mention detection is not implemented. Notification preferences never suppress message delivery. The web app shows in-app alerts outside the visible conversation and browser alerts for hidden tabs after the user grants permission in notification settings. Closed-browser/offline Web Push delivery is not implemented.
 

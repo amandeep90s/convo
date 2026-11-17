@@ -1,7 +1,7 @@
 'use client';
 
-import type { TMessageReceipt } from '@repo/shared';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import type { ChatParticipant, TMessageReceipt } from '@repo/shared';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowLeft, Check, CheckCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
@@ -9,6 +9,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import { MemberManager } from '@/components/app/member-manager';
 import { MessageComposer } from '@/components/app/message-composer';
+import { PresenceStatus } from '@/components/app/presence-status';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -16,13 +17,12 @@ import { useUiText } from '@/i18n/ui-text';
 import { apiRequest } from '@/lib/client/api';
 import { useCurrentUser } from '@/lib/client/use-current-user';
 
-type Person = { id: string; name: string; username: string; avatar_url: string | null };
 type Conversation = {
   id: string;
   name: string | null;
   type: string;
   group: { name: string; description: string | null } | null;
-  members: Array<{ user_id: string; role: string; user: Person }>;
+  members: Array<{ user_id: string; role: string; user: ChatParticipant }>;
 };
 type Message = {
   id: string;
@@ -30,7 +30,7 @@ type Message = {
   type: string;
   content: string | null;
   created_at: string;
-  sender: Person;
+  sender: Omit<ChatParticipant, 'presence'>;
   attachments: Array<{ id: string; file_name: string | null; mime_type: string }>;
   receipts: TMessageReceipt[];
 };
@@ -39,6 +39,7 @@ type MessagePage = { items: Message[]; nextCursor: string | null; hasMore: boole
 export function ConversationView({ conversationId }: { conversationId: string }) {
   const text = useUiText();
   const locale = useLocale();
+  const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
   const [isVisible, setIsVisible] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
@@ -56,6 +57,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
     queryKey: ['conversation', conversationId],
     queryFn: () => apiRequest<Conversation>(`conversations/${conversationId}`),
     retry: false,
+    refetchInterval: 30000,
   });
   const messages = useInfiniteQuery({
     queryKey: ['messages', conversationId],
@@ -85,17 +87,26 @@ export function ConversationView({ conversationId }: { conversationId: string })
     });
     for (const message of unread) acknowledged.current.add(`${currentUser.id}:${message.id}`);
     receiptQueue.current = receiptQueue.current.then(async () => {
+      let updated = false;
       for (const message of unread) {
         try {
           await apiRequest(`message-receipts/${message.id}/read`, { method: 'PATCH' });
+          updated = true;
           setReceiptError(null);
         } catch (reason) {
           acknowledged.current.delete(`${currentUser.id}:${message.id}`);
           setReceiptError(reason instanceof Error ? reason.message : text('Could not mark messages as read.'));
         }
       }
+      if (updated) {
+        try {
+          await queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        } catch (reason) {
+          setReceiptError(reason instanceof Error ? reason.message : text('Could not mark messages as read.'));
+        }
+      }
     });
-  }, [currentUser, isVisible, orderedMessages, text]);
+  }, [currentUser, isVisible, orderedMessages, text, queryClient]);
   const otherMember = currentUser
     ? conversation.data?.members.find(({ user_id }) => user_id !== currentUser.id)?.user
     : undefined;
@@ -128,13 +139,24 @@ export function ConversationView({ conversationId }: { conversationId: string })
         </Avatar>
         <div className="min-w-0 flex-1">
           <h1 className="truncate font-semibold">{conversation.isPending ? text('Loading conversation…') : title}</h1>
-          <p className="truncate text-xs text-muted-foreground">
-            {otherMember
-              ? `@${otherMember.username}`
-              : conversation.data
-                ? `${conversation.data.members.length} members`
-                : ''}
-          </p>
+          {conversation.data?.type === 'private' ? (
+            <div className="flex items-center gap-2">
+              <PresenceStatus presence={otherMember?.presence ?? null} />
+              <span className="truncate text-xs text-muted-foreground">
+                {otherMember ? `@${otherMember.username}` : ''}
+              </span>
+            </div>
+          ) : (
+            <p className="truncate text-xs text-muted-foreground">
+              {conversation.data ? (
+                <>
+                  {conversation.data.members.length} {text('members')}
+                </>
+              ) : (
+                ''
+              )}
+            </p>
+          )}
         </div>
       </header>
       {conversation.data && conversation.data.type !== 'private' && (
@@ -243,7 +265,11 @@ export function ConversationView({ conversationId }: { conversationId: string })
         </p>
       )}
       <footer className="border-t bg-muted/50 p-3 md:px-6">
-        <MessageComposer conversationId={conversationId} disabled={conversation.isError || conversation.isPending} />
+        <MessageComposer
+          key={conversationId}
+          conversationId={conversationId}
+          disabled={conversation.isError || conversation.isPending}
+        />
       </footer>
     </div>
   );

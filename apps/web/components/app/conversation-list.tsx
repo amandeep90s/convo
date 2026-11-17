@@ -1,5 +1,6 @@
 'use client';
 
+import type { ConversationListItem } from '@repo/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, ArchiveRestore, MessageCircle, Search, Star, StarOff } from 'lucide-react';
 import Link from 'next/link';
@@ -9,6 +10,7 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import { GroupCreator } from '@/components/app/group-creator';
+import { PresenceStatus } from '@/components/app/presence-status';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,20 +19,7 @@ import { ApiError, apiRequest } from '@/lib/client/api';
 import { useCurrentUser } from '@/lib/client/use-current-user';
 
 type ConversationMode = 'recent' | 'archived' | 'starred';
-type ConversationListResponse = { data: Conversation[]; total: number };
-type Conversation = {
-  id: string;
-  name: string | null;
-  type: string;
-  last_message_at: string | null;
-  members: Array<{
-    user_id: string;
-    archived_at: string | null;
-    starred_at: string | null;
-    user: { id: string; name: string; username: string; avatar_url: string | null };
-  }>;
-  messages: Array<{ id: string; type: string; content: string | null; created_at: string }>;
-};
+type ConversationListResponse = { data: ConversationListItem[]; total: number };
 
 const viewCopy: Record<ConversationMode, { title: string; description: string; empty: string }> = {
   recent: {
@@ -190,8 +179,21 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
                         </time>
                       )}
                     </span>
-                    <span className="mt-1 block truncate text-sm text-muted-foreground">
-                      {message?.content || (message ? text('Attachment or shared content') : text('No messages yet'))}
+                    {conversation.type === 'private' && <PresenceStatus presence={participant?.presence ?? null} />}
+                    <span className="mt-1 flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                      <span className="truncate">
+                        {message?.content || (message ? text('Attachment or shared content') : text('No messages yet'))}
+                      </span>
+                      {conversation.unread_count > 0 && (
+                        <span
+                          aria-label={text('{count, plural, one {# unread message} other {# unread messages}}', {
+                            count: conversation.unread_count,
+                          })}
+                          className="min-w-5 shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-center text-xs font-semibold text-primary-foreground"
+                        >
+                          {new Intl.NumberFormat(locale).format(conversation.unread_count)}
+                        </span>
+                      )}
                     </span>
                   </span>
                 </Link>

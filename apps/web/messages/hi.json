@@ -3,6 +3,11 @@
     "title": "कॉन्वो ऐप"
   },
   "UI": {
+    "notification_sound_d6922c19": "सूचना की आवाज़",
+    "disable_notification_sound_b52a9085": "सूचना की आवाज़ बंद करें",
+    "enable_notification_sound_ad931c6a": "सूचना की आवाज़ चालू करें",
+    "play_a_short_sound_for_new_message_alerts_saved_on_this_brow_a4bb0617": "नए संदेश की सूचना के लिए छोटी-सी आवाज़ बजाएँ। यह प्राथमिकता केवल इस ब्राउज़र में सहेजी जाती है। आवाज़ की अनुमति के लिए ऐप खोलने के बाद क्लिक करें या कोई कुंजी दबाएँ।",
+    "could_not_enable_or_play_notification_sound_check_your_brows_55eb9d89": "सूचना की आवाज़ चालू नहीं हो सकी या बज नहीं सकी। ब्राउज़र की अनुमतियों और स्टोरेज सेटिंग की जाँच करें।",
     "a_calm_thoughtful_space_for_your_people_groups_and_everyday__9cb97ef5": "अपनों, समूहों और रोज़मर्रा के पलों के लिए एक सुकून भरी जगह। Convo में स्वागत है।",
     "a_little_more_connected_c3b6c12e": "एक-दूसरे के और करीब",
     "a_private_space_for_your_everyday_conversations_4ddce1d8": "रोज़मर्रा की बातचीत के लिए आपकी निजी जगह",
@@ -505,6 +510,27 @@
     "unknown_time_68674852": "समय अज्ञात",
     "video_cef90b6c": "वीडियो",
     "web_fd9bc91": "वेब",
-    "count_plural_one_result_other_results_96d51147": "{count, plural, one {# परिणाम} other {# परिणाम}}"
+    "count_plural_one_result_other_results_96d51147": "{count, plural, one {# परिणाम} other {# परिणाम}}",
+    "online_bc3b88aa": "ऑनलाइन",
+    "offline_c47c37c8": "ऑफ़लाइन",
+    "count_plural_one_unread_message_other_unread_messages_189cc735": "{count, plural, one {# अपठित संदेश} other {# अपठित संदेश}}",
+    "add_emoji_a3203c4a": "इमोजी जोड़ें",
+    "search_emojis_7ef6ed94": "इमोजी खोजें",
+    "clear_search_5a13e946": "खोज साफ़ करें",
+    "no_emojis_found_9e1b7df5": "कोई इमोजी नहीं मिला",
+    "1_emoji_found_use_arrow_keys_to_navigate_32a43a00": "1 इमोजी मिला। आगे जाने के लिए तीर वाली कुंजियों का उपयोग करें।",
+    "n_emojis_found_use_arrow_keys_to_navigate_2459ffed": "%n इमोजी मिले। आगे जाने के लिए तीर वाली कुंजियों का उपयोग करें।",
+    "emoji_categories_735626fb": "इमोजी श्रेणियाँ",
+    "could_not_load_emojis_6215ec8e": "इमोजी लोड नहीं हो सके।",
+    "recently_used_14f472fe": "हाल ही में उपयोग किए गए",
+    "smileys_and_people_c2e0d275": "मुस्कान और लोग",
+    "animals_and_nature_7a7f988a": "जानवर और प्रकृति",
+    "food_and_drink_c7d8aa26": "खाना और पेय",
+    "travel_and_places_760f1084": "यात्रा और स्थान",
+    "activities_8092fcb8": "गतिविधियाँ",
+    "objects_828760b": "वस्तुएँ",
+    "symbols_e9c4c6a6": "प्रतीक",
+    "flags_4222ebcc": "झंडे",
+    "messages_must_be_10_000_characters_or_fewer_eddf69da": "संदेश 10,000 या उससे कम अक्षरों के होने चाहिए।"
   }
 }

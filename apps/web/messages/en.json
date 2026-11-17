@@ -3,6 +3,11 @@
     "title": "Convo App"
   },
   "UI": {
+    "notification_sound_d6922c19": "Notification sound",
+    "disable_notification_sound_b52a9085": "Disable notification sound",
+    "enable_notification_sound_ad931c6a": "Enable notification sound",
+    "play_a_short_sound_for_new_message_alerts_saved_on_this_brow_a4bb0617": "Play a short sound for new message alerts. Saved on this browser only. Click or press a key after opening the app to allow sound.",
+    "could_not_enable_or_play_notification_sound_check_your_brows_55eb9d89": "Could not enable or play notification sound. Check your browser permissions and storage settings.",
     "a_calm_thoughtful_space_for_your_people_groups_and_everyday__9cb97ef5": "A calm, thoughtful space for your people, groups, and everyday moments. Welcome to Convo.",
     "a_little_more_connected_c3b6c12e": "A little more connected",
     "a_private_space_for_your_everyday_conversations_4ddce1d8": "A private space for your everyday conversations",
@@ -505,6 +510,27 @@
     "unknown_time_68674852": "unknown time",
     "video_cef90b6c": "video",
     "web_fd9bc91": "web",
-    "count_plural_one_result_other_results_96d51147": "{count, plural, one {# result} other {# results}}"
+    "count_plural_one_result_other_results_96d51147": "{count, plural, one {# result} other {# results}}",
+    "online_bc3b88aa": "Online",
+    "offline_c47c37c8": "Offline",
+    "count_plural_one_unread_message_other_unread_messages_189cc735": "{count, plural, one {# unread message} other {# unread messages}}",
+    "add_emoji_a3203c4a": "Add emoji",
+    "search_emojis_7ef6ed94": "Search emojis",
+    "clear_search_5a13e946": "Clear search",
+    "no_emojis_found_9e1b7df5": "No emojis found",
+    "1_emoji_found_use_arrow_keys_to_navigate_32a43a00": "1 emoji found. Use arrow keys to navigate.",
+    "n_emojis_found_use_arrow_keys_to_navigate_2459ffed": "%n emojis found. Use arrow keys to navigate.",
+    "emoji_categories_735626fb": "Emoji categories",
+    "could_not_load_emojis_6215ec8e": "Could not load emojis.",
+    "recently_used_14f472fe": "Recently used",
+    "smileys_and_people_c2e0d275": "Smileys and people",
+    "animals_and_nature_7a7f988a": "Animals and nature",
+    "food_and_drink_c7d8aa26": "Food and drink",
+    "travel_and_places_760f1084": "Travel and places",
+    "activities_8092fcb8": "Activities",
+    "objects_828760b": "Objects",
+    "symbols_e9c4c6a6": "Symbols",
+    "flags_4222ebcc": "Flags",
+    "messages_must_be_10_000_characters_or_fewer_eddf69da": "Messages must be 10,000 characters or fewer."
   }
 }

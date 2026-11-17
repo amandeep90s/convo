@@ -17,6 +17,7 @@ declare global {
 const test = base.extend<{
   peers: {
     senderToken: string;
+    senderId: string;
     recipientToken: string;
     recipientId: string;
     conversationId: string;
@@ -77,6 +78,7 @@ const test = base.extend<{
       conversationId = id;
       await use({
         senderToken: sender.token,
+        senderId: sender.id,
         recipientToken: recipient.token,
         recipientId: recipient.id,
         conversationId: id,
@@ -130,6 +132,185 @@ async function connectRecipient(page: Page, token: string) {
   );
 }
 
+test('presence follows authenticated sockets across tabs and respects contacts and blocks', async ({
+  request,
+  page,
+  peers,
+}) => {
+  const headers = { authorization: `Bearer ${peers.senderToken}` };
+  const recipientHeaders = { authorization: `Bearer ${peers.recipientToken}` };
+  async function presence() {
+    const response = await request.get(
+      `/api/v1/conversations/${peers.conversationId}`,
+      { headers },
+    );
+    expect(response.ok()).toBeTruthy();
+    return (await response.json()).data.members.find(
+      (member: { user_id: string }) => member.user_id === peers.recipientId,
+    ).user.presence;
+  }
+  // Contacts-only is the default, and visibility follows the subject's contact list.
+  expect(await presence()).toBeNull();
+  await peers.db.contact.create({
+    data: { user_id: peers.recipientId, contact_user_id: peers.senderId },
+  });
+  expect(await presence()).toBe('offline');
+  await connectRecipient(page, peers.senderToken);
+  const firstTab = await page.context().newPage();
+  const secondTab = await page.context().newPage();
+  try {
+    await connectRecipient(firstTab, peers.recipientToken);
+    await expect.poll(presence).toBe('online');
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          window.realtimeEvents.some(([name]) => name === 'presence:updated'),
+        ),
+      )
+      .toBe(true);
+    await connectRecipient(secondTab, peers.recipientToken);
+    await firstTab.close();
+    expect(await presence()).toBe('online');
+    await secondTab.close();
+    await expect.poll(presence).toBe('offline');
+
+    expect(
+      (
+        await request.patch('/api/v1/user-settings', {
+          headers: recipientHeaders,
+          data: { online_visibility: 'nobody' },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    expect(await presence()).toBeNull();
+    expect(
+      (
+        await request.patch('/api/v1/user-settings', {
+          headers: recipientHeaders,
+          data: { online_visibility: 'everyone' },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    expect(await presence()).toBe('offline');
+    for (const block of [
+      { user_id: peers.senderId, blocked_user_id: peers.recipientId },
+      { user_id: peers.recipientId, blocked_user_id: peers.senderId },
+    ]) {
+      await peers.db.blockedUser.create({ data: block });
+      expect(await presence()).toBeNull();
+      await peers.db.blockedUser.delete({
+        where: { user_id_blocked_user_id: block },
+      });
+    }
+  } finally {
+    if (!firstTab.isClosed()) await firstTab.close();
+    if (!secondTab.isClosed()) await secondTab.close();
+  }
+});
+
+test('unread counts exclude inactive and own messages and clear without sharing read receipts', async ({
+  request,
+  peers,
+}) => {
+  const headers = { authorization: `Bearer ${peers.recipientToken}` };
+  const senderHeaders = { authorization: `Bearer ${peers.senderToken}` };
+  expect(
+    (
+      await request.patch('/api/v1/user-settings', {
+        headers,
+        data: { read_receipts: false },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  const ids: string[] = [];
+  for (const content of ['First unread', 'Second unread']) {
+    const sent = await request.post('/api/v1/messages', {
+      headers: senderHeaders,
+      data: { conversation_id: peers.conversationId, type: 'text', content },
+    });
+    expect(sent.ok()).toBeTruthy();
+    ids.push((await sent.json()).data.id);
+  }
+  const firstId = ids[0];
+  const secondId = ids[1];
+  await peers.db.message.updateMany({
+    where: { id: { in: ids } },
+    data: { created_at: new Date() },
+  });
+  await peers.db.message.createMany({
+    data: [
+      {
+        conversation_id: peers.conversationId,
+        sender_id: peers.recipientId,
+        type: 'text',
+        content: 'Own message',
+      },
+      {
+        conversation_id: peers.conversationId,
+        sender_id: peers.senderId,
+        type: 'text',
+        content: 'Deleted',
+        deleted_at: new Date(),
+      },
+      {
+        conversation_id: peers.conversationId,
+        sender_id: peers.senderId,
+        type: 'text',
+        content: 'Expired',
+        expires_at: new Date(Date.now() - 1000),
+      },
+      {
+        conversation_id: peers.conversationId,
+        sender_id: peers.senderId,
+        type: 'text',
+        content: 'Before joining',
+        created_at: new Date('2000-01-01'),
+      },
+    ],
+  });
+  async function count() {
+    const response = await request.get('/api/v1/conversations', { headers });
+    expect(response.ok()).toBeTruthy();
+    return (await response.json()).data.data.find(
+      (conversation: { id: string }) =>
+        conversation.id === peers.conversationId,
+    ).unread_count;
+  }
+  const olderId = firstId < secondId ? firstId : secondId;
+  const newerId = firstId < secondId ? secondId : firstId;
+  expect(await count()).toBe(2);
+  expect(
+    (
+      await request.patch(`/api/v1/message-receipts/${olderId}/read`, {
+        headers,
+      })
+    ).ok(),
+  ).toBeTruthy();
+  expect(await count()).toBe(1);
+  expect(
+    (
+      await request.patch(`/api/v1/message-receipts/${newerId}/read`, {
+        headers,
+      })
+    ).ok(),
+  ).toBeTruthy();
+  expect(await count()).toBe(0);
+  expect(
+    (
+      await request.patch(`/api/v1/message-receipts/${olderId}/read`, {
+        headers,
+      })
+    ).ok(),
+  ).toBeTruthy();
+  expect(await count()).toBe(0);
+  const receipt = await peers.db.messageReceipt.findUniqueOrThrow({
+    where: {
+      message_id_user_id: { message_id: newerId, user_id: peers.recipientId },
+    },
+  });
+  expect(receipt.read_at).toBeNull();
+});
+
 test('a recipient outside the chat gets messages, notifications, attachments and receipt events', async ({
   request,
   page,
@@ -182,7 +363,9 @@ test('a recipient outside the chat gets messages, notifications, attachments and
   }
   const delivered = await request.post(
     `/api/v1/message-receipts/${messageId}/delivered`,
-    { headers: recipientHeaders },
+    {
+      headers: recipientHeaders,
+    },
   );
   expect(delivered.ok()).toBeTruthy();
   const read = await request.patch(
@@ -204,7 +387,9 @@ test('a recipient outside the chat gets messages, notifications, attachments and
     .toBe(true);
   const receipts = await request.get(
     `/api/v1/message-receipts?conversationId=${peers.conversationId}`,
-    { headers: senderHeaders },
+    {
+      headers: senderHeaders,
+    },
   );
   expect((await receipts.json()).data).toEqual(
     expect.arrayContaining([

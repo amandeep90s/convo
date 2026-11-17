@@ -1,4 +1,4 @@
-import { OnModuleDestroy } from '@nestjs/common';
+import { Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import {
@@ -11,6 +11,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
+import type { UserPresence } from '@repo/shared';
 import { createAdapter } from '@socket.io/redis-adapter';
 import Redis from 'ioredis';
 import type { Server, Socket } from 'socket.io';
@@ -56,6 +57,7 @@ export class RealtimeGateway
 
   private publisher?: Redis;
   private subscriber?: Redis;
+  private readonly logger = new Logger(RealtimeGateway.name);
 
   constructor(
     private readonly configService: ConfigService,
@@ -81,13 +83,123 @@ export class RealtimeGateway
     server.adapter(createAdapter(this.publisher, this.subscriber));
   }
 
-  handleConnection(client: AuthenticatedSocket) {
+  async handleConnection(client: AuthenticatedSocket) {
     if (client.data.userId) {
-      void client.join(this.userRoom(client.data.userId));
+      await client.join(this.userRoom(client.data.userId));
+      await this.publishPresence(client.data.userId);
     }
   }
 
-  handleDisconnect(_client: AuthenticatedSocket) {}
+  async handleDisconnect(client: AuthenticatedSocket) {
+    if (client.data.userId) await this.publishPresence(client.data.userId);
+  }
+
+  async presenceFor(
+    viewerId: string,
+    userIds: string[],
+  ): Promise<Map<string, UserPresence>> {
+    const ids = [...new Set(userIds)];
+    const result = new Map<string, UserPresence>(ids.map((id) => [id, null]));
+    if (!ids.length) return result;
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: ids }, status: 'active', deleted_at: null },
+      select: {
+        id: true,
+        settings: { select: { online_visibility: true } },
+        contacts: {
+          where: { contact_user_id: viewerId },
+          select: { contact_user_id: true },
+        },
+        blocked_users: {
+          where: { blocked_user_id: viewerId },
+          select: { user_id: true },
+        },
+        blocked_by: { where: { user_id: viewerId }, select: { user_id: true } },
+      },
+    });
+    const visible = users.filter((user) => {
+      if (user.blocked_users.length || user.blocked_by.length) return false;
+      const visibility = user.settings?.online_visibility ?? 'contacts';
+      return (
+        user.id === viewerId ||
+        visibility === 'everyone' ||
+        (visibility === 'contacts' && user.contacts.length > 0)
+      );
+    });
+    if (!visible.length) return result;
+    const sockets = await this.server
+      .in(visible.map(({ id }) => this.userRoom(id)))
+      .fetchSockets();
+    const sessionIds = sockets
+      .map((socket) => socket.data.sessionId)
+      .filter((id): id is string => typeof id === 'string');
+    const sessions = sessionIds.length
+      ? await this.prisma.userSession.findMany({
+          where: {
+            id: { in: sessionIds },
+            revoked_at: null,
+            expires_at: { gt: new Date() },
+            device: { revoked_at: null },
+            user: { status: 'active', deleted_at: null },
+          },
+          select: { user_id: true },
+        })
+      : [];
+    const online = new Set(sessions.map(({ user_id }) => user_id));
+    for (const user of visible)
+      result.set(user.id, online.has(user.id) ? 'online' : 'offline');
+    return result;
+  }
+
+  private async publishPresence(userId: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          settings: { select: { online_visibility: true } },
+          contacts: { select: { contact_user_id: true } },
+          blocked_users: { select: { blocked_user_id: true } },
+          blocked_by: { select: { user_id: true } },
+        },
+      });
+      if (!user) return;
+      const visibility = user.settings?.online_visibility ?? 'contacts';
+      if (visibility === 'nobody') return;
+      const contacts = new Set(
+        user.contacts.map(({ contact_user_id }) => contact_user_id),
+      );
+      const blocked = new Set([
+        ...user.blocked_users.map(({ blocked_user_id }) => blocked_user_id),
+        ...user.blocked_by.map(({ user_id }) => user_id),
+      ]);
+      const members = await this.prisma.conversationMember.findMany({
+        where: {
+          user_id: { not: userId },
+          left_at: null,
+          conversation: {
+            deleted_at: null,
+            type: 'private',
+            members: { some: { user_id: userId, left_at: null } },
+          },
+        },
+        select: { user_id: true },
+        distinct: ['user_id'],
+      });
+      const rooms = members
+        .filter(
+          ({ user_id }) =>
+            !blocked.has(user_id) &&
+            (visibility === 'everyone' || contacts.has(user_id)),
+        )
+        .map(({ user_id }) => this.userRoom(user_id));
+      if (rooms.length) this.server.to(rooms).emit('presence:updated');
+    } catch (reason) {
+      this.logger.error(
+        'Could not publish presence update',
+        reason instanceof Error ? reason.stack : String(reason),
+      );
+    }
+  }
 
   async onModuleDestroy() {
     await Promise.all([this.publisher?.quit(), this.subscriber?.quit()]);

@@ -3,6 +3,11 @@
     "title": "ਕਨਵੋ ਐਪ"
   },
   "UI": {
+    "notification_sound_d6922c19": "ਸੂਚਨਾ ਦੀ ਆਵਾਜ਼",
+    "disable_notification_sound_b52a9085": "ਸੂਚਨਾ ਦੀ ਆਵਾਜ਼ ਬੰਦ ਕਰੋ",
+    "enable_notification_sound_ad931c6a": "ਸੂਚਨਾ ਦੀ ਆਵਾਜ਼ ਚਾਲੂ ਕਰੋ",
+    "play_a_short_sound_for_new_message_alerts_saved_on_this_brow_a4bb0617": "ਨਵੇਂ ਸੁਨੇਹੇ ਦੀ ਸੂਚਨਾ ਲਈ ਛੋਟੀ ਜਿਹੀ ਆਵਾਜ਼ ਵਜਾਓ। ਇਹ ਤਰਜੀਹ ਸਿਰਫ਼ ਇਸ ਬਰਾਊਜ਼ਰ ਵਿੱਚ ਸੰਭਾਲੀ ਜਾਂਦੀ ਹੈ। ਆਵਾਜ਼ ਦੀ ਇਜਾਜ਼ਤ ਲਈ ਐਪ ਖੋਲ੍ਹਣ ਤੋਂ ਬਾਅਦ ਕਲਿੱਕ ਕਰੋ ਜਾਂ ਕੋਈ ਕੁੰਜੀ ਦਬਾਓ।",
+    "could_not_enable_or_play_notification_sound_check_your_brows_55eb9d89": "ਸੂਚਨਾ ਦੀ ਆਵਾਜ਼ ਚਾਲੂ ਜਾਂ ਵਜਾਈ ਨਹੀਂ ਜਾ ਸਕੀ। ਬਰਾਊਜ਼ਰ ਦੀਆਂ ਇਜਾਜ਼ਤਾਂ ਅਤੇ ਸਟੋਰੇਜ ਸੈਟਿੰਗਾਂ ਦੀ ਜਾਂਚ ਕਰੋ।",
     "a_calm_thoughtful_space_for_your_people_groups_and_everyday__9cb97ef5": "ਆਪਣਿਆਂ, ਗਰੁੱਪਾਂ ਅਤੇ ਰੋਜ਼ਾਨਾ ਪਲਾਂ ਲਈ ਇੱਕ ਸੁਕੂਨ ਭਰੀ ਥਾਂ। Convo ਵਿੱਚ ਜੀ ਆਇਆਂ ਨੂੰ।",
     "a_little_more_connected_c3b6c12e": "ਇੱਕ ਦੂਜੇ ਦੇ ਹੋਰ ਨੇੜੇ",
     "a_private_space_for_your_everyday_conversations_4ddce1d8": "ਰੋਜ਼ਾਨਾ ਗੱਲਾਂ ਲਈ ਤੁਹਾਡੀ ਨਿੱਜੀ ਥਾਂ",
@@ -505,6 +510,27 @@
     "unknown_time_68674852": "ਸਮਾਂ ਅਣਜਾਣ",
     "video_cef90b6c": "ਵੀਡੀਓ",
     "web_fd9bc91": "ਵੈੱਬ",
-    "count_plural_one_result_other_results_96d51147": "{count, plural, one {# ਨਤੀਜਾ} other {# ਨਤੀਜੇ}}"
+    "count_plural_one_result_other_results_96d51147": "{count, plural, one {# ਨਤੀਜਾ} other {# ਨਤੀਜੇ}}",
+    "online_bc3b88aa": "ਆਨਲਾਈਨ",
+    "offline_c47c37c8": "ਆਫਲਾਈਨ",
+    "count_plural_one_unread_message_other_unread_messages_189cc735": "{count, plural, one {# ਅਣਪੜ੍ਹਿਆ ਸੁਨੇਹਾ} other {# ਅਣਪੜ੍ਹੇ ਸੁਨੇਹੇ}}",
+    "add_emoji_a3203c4a": "ਇਮੋਜੀ ਸ਼ਾਮਲ ਕਰੋ",
+    "search_emojis_7ef6ed94": "ਇਮੋਜੀ ਲੱਭੋ",
+    "clear_search_5a13e946": "ਖੋਜ ਸਾਫ਼ ਕਰੋ",
+    "no_emojis_found_9e1b7df5": "ਕੋਈ ਇਮੋਜੀ ਨਹੀਂ ਮਿਲਿਆ",
+    "1_emoji_found_use_arrow_keys_to_navigate_32a43a00": "1 ਇਮੋਜੀ ਮਿਲਿਆ। ਅੱਗੇ ਜਾਣ ਲਈ ਤੀਰ ਵਾਲੀਆਂ ਕੁੰਜੀਆਂ ਵਰਤੋ।",
+    "n_emojis_found_use_arrow_keys_to_navigate_2459ffed": "%n ਇਮੋਜੀ ਮਿਲੇ। ਅੱਗੇ ਜਾਣ ਲਈ ਤੀਰ ਵਾਲੀਆਂ ਕੁੰਜੀਆਂ ਵਰਤੋ।",
+    "emoji_categories_735626fb": "ਇਮੋਜੀ ਸ਼੍ਰੇਣੀਆਂ",
+    "could_not_load_emojis_6215ec8e": "ਇਮੋਜੀ ਲੋਡ ਨਹੀਂ ਹੋ ਸਕੇ।",
+    "recently_used_14f472fe": "ਹਾਲ ਹੀ ਵਿੱਚ ਵਰਤੇ ਗਏ",
+    "smileys_and_people_c2e0d275": "ਮੁਸਕਰਾਹਟਾਂ ਅਤੇ ਲੋਕ",
+    "animals_and_nature_7a7f988a": "ਜਾਨਵਰ ਅਤੇ ਕੁਦਰਤ",
+    "food_and_drink_c7d8aa26": "ਖਾਣਾ ਅਤੇ ਪੀਣ ਵਾਲੀਆਂ ਚੀਜ਼ਾਂ",
+    "travel_and_places_760f1084": "ਯਾਤਰਾ ਅਤੇ ਥਾਵਾਂ",
+    "activities_8092fcb8": "ਗਤੀਵਿਧੀਆਂ",
+    "objects_828760b": "ਵਸਤੂਆਂ",
+    "symbols_e9c4c6a6": "ਚਿੰਨ੍ਹ",
+    "flags_4222ebcc": "ਝੰਡੇ",
+    "messages_must_be_10_000_characters_or_fewer_eddf69da": "ਸੁਨੇਹੇ 10,000 ਜਾਂ ਘੱਟ ਅੱਖਰਾਂ ਦੇ ਹੋਣੇ ਚਾਹੀਦੇ ਹਨ।"
   }
 }
