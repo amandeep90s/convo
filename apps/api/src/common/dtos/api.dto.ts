@@ -16,6 +16,7 @@ import {
   createUserDeviceSchema,
   createUserSettingsSchema,
   deleteMessageParamsSchema,
+  listConversationsParamsSchema,
   paginationParamsSchema,
   searchMessagesParamsSchema,
   updateCallParticipantSchema,
@@ -33,6 +34,9 @@ import {
 import { createZodDto } from 'nestjs-zod';
 
 export class PaginationDto extends createZodDto(paginationParamsSchema) {}
+export class ListConversationsDto extends createZodDto(
+  listConversationsParamsSchema,
+) {}
 export class CreateMessageDto extends createZodDto(createMessageSchema) {}
 export class SearchMessagesDto extends createZodDto(
   searchMessagesParamsSchema,

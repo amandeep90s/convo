@@ -19,6 +19,11 @@ import { ConversationAccessService } from '@/common/providers/conversation-acces
 import { PrismaService } from '@/prisma.service';
 import { RealtimeGateway } from '@/realtime/realtime.gateway';
 
+export type StoredMessageAttachment = Pick<
+  Prisma.MessageAttachmentCreateWithoutMessageInput,
+  'type' | 'storage_key' | 'mime_type' | 'file_name' | 'file_size'
+>;
+
 @Injectable()
 export class MessagesService {
   constructor(
@@ -178,7 +183,51 @@ export class MessagesService {
     return serializeMessage(message);
   }
 
-  async create(userId: string, data: CreateMessageDto) {
+  async create(
+    userId: string,
+    data: CreateMessageDto,
+    attachment?: StoredMessageAttachment,
+  ) {
+    const { message, conversation } = await this.createMessageRecord(
+      userId,
+      data,
+      attachment,
+    ).catch(async (error: unknown) => {
+      if (attachment) {
+        await removeMessageFiles(
+          this.config.getOrThrow<string>('app.uploadDir'),
+          [attachment.storage_key],
+        );
+      }
+      throw error;
+    });
+    const response = serializeMessage(message);
+    await this.realtime.emitConversationEvent(
+      data.conversation_id,
+      'message:created',
+      response,
+    );
+    for (const member of conversation.members) {
+      if (
+        member.user.settings?.notification_enabled !== false &&
+        member.notification_policy === 'all' &&
+        (!member.muted_until || member.muted_until <= new Date())
+      ) {
+        this.realtime.emitUserEvent(
+          member.user_id,
+          'message:notification',
+          response,
+        );
+      }
+    }
+    return response;
+  }
+
+  private async createMessageRecord(
+    userId: string,
+    data: CreateMessageDto,
+    attachment?: StoredMessageAttachment,
+  ) {
     const membership = await this.access.requireMember(
       data.conversation_id,
       userId,
@@ -246,6 +295,7 @@ export class MessagesService {
           content: data.content,
           metadata: data.metadata,
           expires_at: data.expires_at,
+          ...(attachment ? { attachments: { create: attachment } } : {}),
         },
         include: {
           sender: {
@@ -290,26 +340,7 @@ export class MessagesService {
       });
       return created;
     });
-    const response = serializeMessage(message);
-    await this.realtime.emitConversationEvent(
-      data.conversation_id,
-      'message:created',
-      response,
-    );
-    for (const member of conversation.members) {
-      if (
-        member.user.settings?.notification_enabled !== false &&
-        member.notification_policy === 'all' &&
-        (!member.muted_until || member.muted_until <= new Date())
-      ) {
-        this.realtime.emitUserEvent(
-          member.user_id,
-          'message:notification',
-          response,
-        );
-      }
-    }
-    return response;
+    return { message, conversation };
   }
 
   async update(userId: string, messageId: string, data: UpdateMessageDto) {

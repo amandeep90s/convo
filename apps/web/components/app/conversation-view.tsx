@@ -278,17 +278,15 @@ export function ConversationView({ conversationId }: { conversationId: string })
                           ) : (
                             <Check aria-hidden="true" className="size-3.5 opacity-70" />
                           )}
-                          {currentUser && (
-                            <MessageActions
-                              message={message}
-                              conversationId={conversationId}
-                              own={isOwn}
-                              canDeleteForEveryone={
-                                isOwn || (conversation.data?.type !== 'private' && Boolean(isAdmin))
-                              }
-                            />
-                          )}
                         </span>
+                      )}
+                      {currentUser && (
+                        <MessageActions
+                          message={message}
+                          conversationId={conversationId}
+                          own={isOwn}
+                          canDeleteForEveryone={isOwn || (conversation.data?.type !== 'private' && Boolean(isAdmin))}
+                        />
                       )}
                     </span>
                   </div>

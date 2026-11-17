@@ -555,6 +555,9 @@
     "close_cd86acc3": "बंद करें",
     "delete_chat_5ed9c80": "चैट हटाएँ",
     "edited_5b50d708": "संपादित",
-    "messages_must_be_10_000_characters_or_fewer_eddf69da": "संदेश 10,000 या उससे कम अक्षरों के होने चाहिए।"
+    "messages_must_be_10_000_characters_or_fewer_eddf69da": "संदेश 10,000 या उससे कम अक्षरों के होने चाहिए।",
+    "load_more_conversations_f818a93e": "और बातचीत लोड करें",
+    "files_must_be_between_1_byte_and_20_mb_3fa0c7ed": "फ़ाइलें 1 बाइट से 20 MB के बीच होनी चाहिए",
+    "could_not_send_this_attachment_check_the_chat_before_retryin_416ffd82": "यह संलग्न फ़ाइल नहीं भेजी जा सकी। दोबारा कोशिश करने से पहले चैट देखें।"
   }
 }

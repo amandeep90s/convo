@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { access as accessFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -14,6 +14,10 @@ import { ConfigService } from '@nestjs/config';
 
 import { removeMessageFiles } from '@/common/message-files';
 import { ConversationAccessService } from '@/common/providers/conversation-access.service';
+import {
+  MessagesService,
+  type StoredMessageAttachment,
+} from '@/messages/providers/messages.service';
 import { PrismaService } from '@/prisma.service';
 import { RealtimeGateway } from '@/realtime/realtime.gateway';
 
@@ -45,6 +49,7 @@ export class MessageAttachmentsService {
     private readonly prisma: PrismaService,
     private readonly access: ConversationAccessService,
     private readonly realtime: RealtimeGateway,
+    private readonly messages: MessagesService,
   ) {
     this.uploadDir = this.configService.getOrThrow<string>('app.uploadDir');
   }
@@ -87,12 +92,6 @@ export class MessageAttachmentsService {
   }
 
   async upload(userId: string, messageId: string, file: UploadedMessageFile) {
-    if (!this.allowedMimeTypes.has(file.mimetype)) {
-      throw new BadRequestException('Unsupported file type');
-    }
-    if (file.size < 1 || file.size > 20 * 1024 * 1024) {
-      throw new BadRequestException('Files must be between 1 byte and 20 MB');
-    }
     const message = await this.prisma.message.findFirst({
       where: { id: messageId, deleted_at: null },
       select: { id: true, sender_id: true, conversation_id: true },
@@ -105,13 +104,7 @@ export class MessageAttachmentsService {
       );
     }
 
-    await mkdir(this.uploadDir, { recursive: true });
-    const extension = path
-      .extname(path.basename(file.originalname))
-      .slice(0, 12);
-    const storageKey = `${randomUUID()}${extension}`;
-    const filePath = path.join(this.uploadDir, storageKey);
-    await writeFile(filePath, file.buffer, { flag: 'wx' });
+    const stored = await this.storeFile(file);
     const attachment = await this.prisma
       .$transaction(async (transaction) => {
         await transaction.conversation.update({
@@ -128,14 +121,7 @@ export class MessageAttachmentsService {
         });
         if (!active) throw new NotFoundException('Message not found');
         return transaction.messageAttachment.create({
-          data: {
-            message_id: messageId,
-            type: typeForMime(file.mimetype),
-            storage_key: storageKey,
-            mime_type: file.mimetype,
-            file_name: path.basename(file.originalname).slice(0, 255),
-            file_size: BigInt(file.size),
-          },
+          data: { message_id: messageId, ...stored },
           select: {
             id: true,
             message_id: true,
@@ -148,7 +134,7 @@ export class MessageAttachmentsService {
         });
       })
       .catch(async (error: unknown) => {
-        await unlink(filePath);
+        await removeMessageFiles(this.uploadDir, [stored.storage_key]);
         throw error;
       });
     await this.realtime.emitConversationEvent(
@@ -157,6 +143,62 @@ export class MessageAttachmentsService {
       { message_id: messageId },
     );
     return { ...attachment, file_size: Number(attachment.file_size) };
+  }
+
+  async uploadToConversation(
+    userId: string,
+    conversationId: string,
+    file: UploadedMessageFile,
+  ) {
+    await this.access.requireMember(conversationId, userId);
+    const stored = await this.storeFile(file);
+    return this.messages.create(
+      userId,
+      {
+        conversation_id: conversationId,
+        type: stored.type,
+        content: stored.file_name ?? undefined,
+      },
+      stored,
+    );
+  }
+
+  private async storeFile(
+    file: UploadedMessageFile,
+  ): Promise<StoredMessageAttachment> {
+    if (!this.allowedMimeTypes.has(file.mimetype)) {
+      throw new BadRequestException('Unsupported file type');
+    }
+    if (file.size < 1 || file.size > 20 * 1024 * 1024) {
+      throw new BadRequestException('Files must be between 1 byte and 20 MB');
+    }
+    await mkdir(this.uploadDir, { recursive: true });
+    const extension = path
+      .extname(path.basename(file.originalname))
+      .slice(0, 12);
+    const storageKey = `${randomUUID()}${extension}`;
+    try {
+      await writeFile(path.join(this.uploadDir, storageKey), file.buffer, {
+        flag: 'wx',
+      });
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code !== 'EEXIST'
+      ) {
+        await removeMessageFiles(this.uploadDir, [storageKey]);
+      }
+      throw error;
+    }
+    return {
+      type: typeForMime(file.mimetype),
+      storage_key: storageKey,
+      mime_type: file.mimetype,
+      file_name: path.basename(file.originalname).slice(0, 255),
+      file_size: BigInt(file.size),
+    };
   }
 
   async download(userId: string, attachmentId: string) {

@@ -555,6 +555,9 @@
     "close_cd86acc3": "ਬੰਦ ਕਰੋ",
     "delete_chat_5ed9c80": "ਚੈਟ ਮਿਟਾਓ",
     "edited_5b50d708": "ਸੋਧਿਆ ਗਿਆ",
-    "messages_must_be_10_000_characters_or_fewer_eddf69da": "ਸੁਨੇਹੇ 10,000 ਜਾਂ ਘੱਟ ਅੱਖਰਾਂ ਦੇ ਹੋਣੇ ਚਾਹੀਦੇ ਹਨ।"
+    "messages_must_be_10_000_characters_or_fewer_eddf69da": "ਸੁਨੇਹੇ 10,000 ਜਾਂ ਘੱਟ ਅੱਖਰਾਂ ਦੇ ਹੋਣੇ ਚਾਹੀਦੇ ਹਨ।",
+    "load_more_conversations_f818a93e": "ਹੋਰ ਗੱਲਬਾਤਾਂ ਲੋਡ ਕਰੋ",
+    "files_must_be_between_1_byte_and_20_mb_3fa0c7ed": "ਫ਼ਾਈਲਾਂ 1 ਬਾਈਟ ਤੋਂ 20 MB ਦੇ ਵਿਚਕਾਰ ਹੋਣੀਆਂ ਚਾਹੀਦੀਆਂ ਹਨ",
+    "could_not_send_this_attachment_check_the_chat_before_retryin_416ffd82": "ਇਹ ਨੱਥੀ ਫ਼ਾਈਲ ਭੇਜੀ ਨਹੀਂ ਜਾ ਸਕੀ। ਮੁੜ ਕੋਸ਼ਿਸ਼ ਕਰਨ ਤੋਂ ਪਹਿਲਾਂ ਚੈਟ ਵੇਖੋ।"
   }
 }

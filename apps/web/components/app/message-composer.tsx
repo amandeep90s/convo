@@ -16,7 +16,6 @@ import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/compone
 import { useUiText } from '@/i18n/ui-text';
 import { ApiError, apiRequest } from '@/lib/client/api';
 
-type CreatedMessage = { id: string };
 const ChatEmojiPicker = dynamic(() => import('@/components/app/chat-emoji-picker'), { ssr: false });
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const supportedFiles: Record<string, 'image' | 'video' | 'audio' | 'document'> = {
@@ -113,45 +112,22 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
       );
       return;
     }
-    if (file.size > MAX_FILE_BYTES) {
-      setSubmitError(text('Files must be 20 MB or smaller.'));
+    if (file.size < 1 || file.size > MAX_FILE_BYTES) {
+      setSubmitError(text('Files must be between 1 byte and 20 MB'));
       return;
     }
 
     setUploading(true);
     setSubmitError(null);
-    let message: CreatedMessage;
-    try {
-      const body: CreateMessageDto = { conversation_id: conversationId, type, content: file.name };
-      message = await apiRequest<CreatedMessage>('messages', {
-        method: 'POST',
-        body,
-      });
-    } catch (error) {
-      setSubmitError(toMessage(error, text('Could not prepare the attachment.')));
-      setUploading(false);
-      return;
-    }
-
     const formData = new FormData();
     formData.append('file', file);
     try {
-      await apiRequest(`message-attachments/upload/${message.id}`, { method: 'POST', body: formData });
+      await apiRequest(`message-attachments/conversations/${conversationId}/upload`, {
+        method: 'POST',
+        body: formData,
+      });
     } catch (uploadError) {
-      let failureMessage: string;
-      try {
-        await apiRequest(`messages/${message.id}`, { method: 'DELETE' });
-        failureMessage = text('Upload failed and the unsent message was removed. {value0}', {
-          value0: toMessage(uploadError, 'Please try again.'),
-        });
-      } catch (cleanupError) {
-        failureMessage = text('Upload failed ({value0}). The draft message could not be removed ({value1}).', {
-          value0: toMessage(uploadError, 'unknown error'),
-          value1: toMessage(cleanupError, 'unknown error'),
-        });
-      }
-      await refreshConversationQueries();
-      setSubmitError(failureMessage);
+      setSubmitError(toMessage(uploadError, text('Could not send this attachment. Check the chat before retrying.')));
       setUploading(false);
       return;
     }

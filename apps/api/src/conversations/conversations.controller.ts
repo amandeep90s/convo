@@ -18,7 +18,10 @@ import {
 } from '@/common/decorators/api-endpoint.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
-import { PaginationDto, UpdateConversationDto } from '@/common/dtos/api.dto';
+import {
+  ListConversationsDto,
+  UpdateConversationDto,
+} from '@/common/dtos/api.dto';
 import type { AuthenticatedUser } from '@/common/types/authenticated-user';
 import { ConversationsService } from '@/conversations/providers/conversations.service';
 
@@ -32,7 +35,7 @@ export class ConversationsController {
   @ApiEndpoint('List conversations with optional archive and star filters')
   list(
     @CurrentUser() user: AuthenticatedUser,
-    @Query() pagination: PaginationDto,
+    @Query() pagination: ListConversationsDto,
     @Query('archived') archivedQuery?: string,
     @Query('starred') starredQuery?: string,
   ) {
@@ -42,6 +45,7 @@ export class ConversationsController {
       pagination.limit ?? 20,
       parseBoolean(archivedQuery),
       parseBoolean(starredQuery),
+      pagination.q,
     );
   }
 

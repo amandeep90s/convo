@@ -24,8 +24,10 @@ export class ConversationsService {
     limit: number,
     archived: boolean,
     starred: boolean,
+    search?: string,
   ) {
-    const where = {
+    const term = search?.trim();
+    const where: Prisma.ConversationWhereInput = {
       members: {
         some: {
           user_id: userId,
@@ -35,6 +37,27 @@ export class ConversationsService {
         },
       },
       deleted_at: null,
+      ...(term
+        ? {
+            OR: [
+              { name: { contains: term, mode: 'insensitive' } },
+              {
+                members: {
+                  some: {
+                    user_id: { not: userId },
+                    left_at: null,
+                    user: {
+                      OR: [
+                        { name: { contains: term, mode: 'insensitive' } },
+                        { username: { contains: term, mode: 'insensitive' } },
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
     };
     const [data, total] = await this.prisma.$transaction([
       this.prisma.conversation.findMany({
@@ -74,7 +97,11 @@ export class ConversationsService {
             },
           },
         },
-        orderBy: [{ last_message_at: 'desc' }, { created_at: 'desc' }],
+        orderBy: [
+          { last_message_at: { sort: 'desc', nulls: 'last' } },
+          { created_at: 'desc' },
+          { id: 'desc' },
+        ],
         skip: (page - 1) * limit,
         take: limit,
       }),

@@ -555,6 +555,9 @@
     "close_cd86acc3": "Close",
     "delete_chat_5ed9c80": "Delete chat",
     "edited_5b50d708": "Edited",
-    "messages_must_be_10_000_characters_or_fewer_eddf69da": "Messages must be 10,000 characters or fewer."
+    "messages_must_be_10_000_characters_or_fewer_eddf69da": "Messages must be 10,000 characters or fewer.",
+    "load_more_conversations_f818a93e": "Load more conversations",
+    "files_must_be_between_1_byte_and_20_mb_3fa0c7ed": "Files must be between 1 byte and 20 MB",
+    "could_not_send_this_attachment_check_the_chat_before_retryin_416ffd82": "Could not send this attachment. Check the chat before retrying."
   }
 }
