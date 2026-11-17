@@ -142,7 +142,7 @@ export class CallsService {
         where: { id: callId },
         data: { status: 'accepted', started_at: call.started_at ?? now },
       });
-      this.realtime.emitConversationEvent(
+      await this.realtime.emitConversationEvent(
         call.conversation_id,
         'call:updated',
         updated,
@@ -175,7 +175,7 @@ export class CallsService {
             ? { status: data.status, ended_at: now }
             : { status: 'ringing' },
       });
-      this.realtime.emitConversationEvent(
+      await this.realtime.emitConversationEvent(
         call.conversation_id,
         'call:updated',
         updated,
@@ -196,7 +196,7 @@ export class CallsService {
         where: { call_id: callId, left_at: null },
         data: { left_at: now },
       });
-      this.realtime.emitConversationEvent(
+      await this.realtime.emitConversationEvent(
         call.conversation_id,
         'call:updated',
         updated,

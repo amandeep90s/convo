@@ -14,6 +14,7 @@ import { ConfigService } from '@nestjs/config';
 
 import { ConversationAccessService } from '@/common/providers/conversation-access.service';
 import { PrismaService } from '@/prisma.service';
+import { RealtimeGateway } from '@/realtime/realtime.gateway';
 
 export type UploadedMessageFile = {
   originalname: string;
@@ -42,6 +43,7 @@ export class MessageAttachmentsService {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly access: ConversationAccessService,
+    private readonly realtime: RealtimeGateway,
   ) {
     this.uploadDir = this.configService.getOrThrow<string>('app.uploadDir');
   }
@@ -108,8 +110,8 @@ export class MessageAttachmentsService {
     const storageKey = `${randomUUID()}${extension}`;
     const filePath = path.join(this.uploadDir, storageKey);
     await writeFile(filePath, file.buffer, { flag: 'wx' });
-    try {
-      const attachment = await this.prisma.messageAttachment.create({
+    const attachment = await this.prisma.messageAttachment
+      .create({
         data: {
           message_id: messageId,
           type: typeForMime(file.mimetype),
@@ -127,12 +129,17 @@ export class MessageAttachmentsService {
           file_size: true,
           created_at: true,
         },
+      })
+      .catch(async (error: unknown) => {
+        await unlink(filePath);
+        throw error;
       });
-      return { ...attachment, file_size: Number(attachment.file_size) };
-    } catch (error) {
-      await unlink(filePath);
-      throw error;
-    }
+    await this.realtime.emitConversationEvent(
+      message.conversation_id,
+      'message:attachment',
+      { message_id: messageId },
+    );
+    return { ...attachment, file_size: Number(attachment.file_size) };
   }
 
   async download(userId: string, attachmentId: string) {
@@ -208,6 +215,11 @@ export class MessageAttachmentsService {
         },
       );
     }
+    await this.realtime.emitConversationEvent(
+      attachment.message.conversation_id,
+      'message:attachment',
+      { message_id: attachment.message_id },
+    );
     return { removed: true };
   }
 }

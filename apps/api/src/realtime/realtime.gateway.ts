@@ -29,17 +29,20 @@ type CallSignal = {
   payload: unknown;
 };
 
-const allowedOrigins = (
-  process.env.CORS_ORIGINS ||
-  process.env.WEB_URL ||
-  'http://localhost:3000'
-)
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
 @WebSocketGateway({
-  cors: { origin: allowedOrigins, credentials: true },
+  cors: {
+    origin: (origin, callback) => {
+      const allowedOrigins = (
+        process.env.CORS_ORIGINS ||
+        process.env.WEB_URL ||
+        'http://localhost:3000'
+      )
+        .split(',')
+        .map((value) => value.trim());
+      callback(null, !origin || allowedOrigins.includes(origin));
+    },
+    credentials: true,
+  },
 })
 export class RealtimeGateway
   implements
@@ -151,12 +154,20 @@ export class RealtimeGateway
     return { ok: true };
   }
 
-  emitConversationEvent(
+  async emitConversationEvent(
     conversationId: string,
     event: string,
-    payload: unknown,
+    payload: object,
   ) {
-    this.server?.to(this.conversationRoom(conversationId)).emit(event, payload);
+    const members = await this.prisma.conversationMember.findMany({
+      where: { conversation_id: conversationId, left_at: null },
+      select: { user_id: true },
+    });
+    if (members.length) {
+      this.server
+        .to(members.map(({ user_id }) => this.userRoom(user_id)))
+        .emit(event, { ...payload, conversation_id: conversationId });
+    }
   }
 
   emitUserEvent(userId: string, event: string, payload: unknown) {
@@ -183,7 +194,13 @@ export class RealtimeGateway
       audience: this.configService.getOrThrow<string>('JWT_TOKEN_AUDIENCE'),
       issuer: this.configService.getOrThrow<string>('JWT_TOKEN_ISSUER'),
     });
-    if (payload.type !== 'access' || !payload.sub || !payload.sid) {
+    if (
+      !['access', 'socket'].includes(payload.type) ||
+      typeof payload.sub !== 'string' ||
+      typeof payload.sid !== 'string' ||
+      !payload.sub ||
+      !payload.sid
+    ) {
       throw new Error('Invalid access token');
     }
     const session = await this.prisma.userSession.findFirst({

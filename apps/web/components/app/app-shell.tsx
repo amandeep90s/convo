@@ -21,6 +21,7 @@ import { useState } from 'react';
 
 import { ConversationList } from '@/components/app/conversation-list';
 import { LogoutButton } from '@/components/app/logout-button';
+import { RealtimeUpdates } from '@/components/app/realtime-updates';
 import { ThemeToggle } from '@/components/core/theme-toggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -69,7 +70,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           isChat ? 'h-dvh lg:h-[calc(100dvh-2rem)]' : 'min-h-dvh lg:min-h-[calc(100dvh-2rem)]'
         }`}
       >
-        <aside className="hidden w-[76px] shrink-0 flex-col border-r border-border/70 bg-background/75 px-2 py-5 backdrop-blur-xl md:flex lg:w-64 lg:px-4">
+        <aside className="hidden w-[76px] shrink-0 flex-col border-r border-border/70 bg-background/75 px-2 py-5 backdrop-blur-xl md:flex lg:w-72 lg:px-4">
           <Link
             aria-label="Convo home"
             className="mb-8 flex items-center justify-center gap-3 lg:justify-start lg:px-2"
@@ -89,25 +90,30 @@ export function AppShell({ children }: { children: ReactNode }) {
           <AppNavigation pathname={pathname} />
 
           <div className="mt-auto border-t border-border/70 pt-4">
-            <Link
-              className="mb-3 hidden min-w-0 items-center gap-3 rounded-2xl bg-muted/60 p-3 transition-colors hover:bg-muted lg:flex"
-              href="/settings/profile"
-            >
-              <UserAvatar name={user?.name} isPending={isPending} isError={isError} />
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-medium">
-                  {isPending ? 'Loading account…' : isError ? 'Account unavailable' : (user?.name ?? 'Convo member')}
+            <div className="flex items-center gap-2 lg:rounded-2xl lg:bg-muted/60 lg:p-2">
+              <Link
+                className="hidden min-w-0 flex-1 items-center gap-3 rounded-xl p-1 transition-colors hover:bg-muted lg:flex"
+                href="/settings/profile"
+              >
+                <UserAvatar name={user?.name} isPending={isPending} isError={isError} />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium">
+                    {isPending ? 'Loading account…' : isError ? 'Account unavailable' : (user?.name ?? 'Convo member')}
+                  </span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {user?.username ? `@${user.username}` : 'Your profile'}
+                  </span>
                 </span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {user?.username ? `@${user.username}` : 'Your profile'}
-                </span>
-              </span>
-            </Link>
-            <LogoutButton iconOnly />
+              </Link>
+              <div className="shrink-0">
+                <LogoutButton iconOnly />
+              </div>
+            </div>
           </div>
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <RealtimeUpdates />
           <header className="relative z-20 flex min-h-16 shrink-0 items-center justify-between border-b border-border/70 bg-background/85 px-3 backdrop-blur-xl sm:px-5 lg:px-7">
             <div className="flex min-w-0 items-center gap-3">
               <div className="md:hidden">

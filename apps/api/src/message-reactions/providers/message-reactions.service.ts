@@ -51,7 +51,7 @@ export class MessageReactionsService {
       create: { message_id: messageId, user_id: userId, emoji: data.emoji },
       update: { emoji: data.emoji, created_at: new Date() },
     });
-    this.realtime.emitConversationEvent(
+    await this.realtime.emitConversationEvent(
       message.conversation_id,
       'message:reaction',
       reaction,
@@ -69,6 +69,13 @@ export class MessageReactionsService {
     const result = await this.prisma.messageReaction.deleteMany({
       where: { message_id: messageId, user_id: userId },
     });
+    if (result.count) {
+      await this.realtime.emitConversationEvent(
+        message.conversation_id,
+        'message:reaction',
+        { message_id: messageId, user_id: userId },
+      );
+    }
     return { removed: result.count > 0 };
   }
 }

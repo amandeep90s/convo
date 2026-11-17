@@ -39,13 +39,17 @@ export class MessageReceiptsService {
     const message = await this.messageForReceipt(userId, messageId);
     if (message.sender_id === userId)
       throw new ConflictException('Cannot receipt your own message');
+    const existing = await this.prisma.messageReceipt.findUnique({
+      where: { message_id_user_id: { message_id: messageId, user_id: userId } },
+    });
+    if (existing?.delivered_at) return existing;
     const now = new Date();
     const receipt = await this.prisma.messageReceipt.upsert({
       where: { message_id_user_id: { message_id: messageId, user_id: userId } },
       create: { message_id: messageId, user_id: userId, delivered_at: now },
       update: { delivered_at: now },
     });
-    this.realtime.emitConversationEvent(
+    await this.realtime.emitConversationEvent(
       message.conversation_id,
       'message:receipt',
       receipt,
@@ -75,22 +79,28 @@ export class MessageReceiptsService {
         ...(settings?.read_receipts === false ? {} : { read_at: now }),
       },
     });
-    await this.prisma.conversationMember.update({
-      where: {
-        conversation_id_user_id: {
-          conversation_id: message.conversation_id,
-          user_id: userId,
-        },
+    // History pagination and other devices must not move the read cursor backwards.
+    await this.prisma.$executeRaw`
+      UPDATE conversation_members AS member
+      SET last_read_message_id = ${messageId}::uuid
+      WHERE member.conversation_id = ${message.conversation_id}::uuid
+        AND member.user_id = ${userId}::uuid
+        AND NOT EXISTS (
+          SELECT 1 FROM messages AS current_message, messages AS candidate
+          WHERE current_message.id = member.last_read_message_id
+            AND candidate.id = ${messageId}::uuid
+            AND (current_message.created_at, current_message.id)
+              >= (candidate.created_at, candidate.id)
+        )
+    `;
+    await this.realtime.emitConversationEvent(
+      message.conversation_id,
+      'message:receipt',
+      {
+        ...receipt,
+        read_at: settings?.read_receipts === false ? null : receipt.read_at,
       },
-      data: { last_read_message_id: messageId },
-    });
-    if (settings?.read_receipts !== false) {
-      this.realtime.emitConversationEvent(
-        message.conversation_id,
-        'message:receipt',
-        receipt,
-      );
-    }
+    );
     return { read: true };
   }
 

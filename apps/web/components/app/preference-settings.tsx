@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { z } from 'zod';
 
+import { BrowserNotifications } from '@/components/app/browser-notifications';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -240,11 +241,14 @@ function PreferenceForm({
         </div>
       )}
       {section === 'notifications' && (
-        <BooleanSetting
-          description="Allow notifications for account activity."
-          label="Notifications enabled"
-          registration={register('notification_enabled')}
-        />
+        <>
+          <BooleanSetting
+            description="Show incoming message alerts for unmuted conversations."
+            label="Notifications enabled"
+            registration={register('notification_enabled')}
+          />
+          <BrowserNotifications />
+        </>
       )}
       {section === 'chats' && (
         <BooleanSetting

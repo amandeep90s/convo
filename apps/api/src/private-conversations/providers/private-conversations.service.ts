@@ -8,12 +8,14 @@ import {
 
 import { ConversationAccessService } from '@/common/providers/conversation-access.service';
 import { PrismaService } from '@/prisma.service';
+import { RealtimeGateway } from '@/realtime/realtime.gateway';
 
 @Injectable()
 export class PrivateConversationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: ConversationAccessService,
+    private readonly realtime: RealtimeGateway,
   ) {}
 
   async create(userId: string, participantId: string) {
@@ -67,6 +69,11 @@ export class PrivateConversationsService {
       if (!winner) throw error;
       return this.get(userId, winner.conversation_id);
     }
+    await this.realtime.emitConversationEvent(
+      conversationId,
+      'conversation:updated',
+      {},
+    );
     return this.get(userId, conversationId);
   }
 

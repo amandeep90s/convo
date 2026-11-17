@@ -11,6 +11,7 @@ export * from './message.js';
 export * from './paginated-response.js';
 export * from './prisma-common.js';
 export * from './private-conversation.js';
+export * from './realtime.js';
 export * from './user-device.js';
 export * from './user-session.js';
 export * from './user-settings.js';

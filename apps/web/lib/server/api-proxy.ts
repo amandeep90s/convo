@@ -33,6 +33,7 @@ const ALLOWED_RESOURCES = new Set([
   'pinned-messages',
   'calls',
   'call-participants',
+  'realtime',
 ]);
 const MAX_JSON_BODY_BYTES = 1_048_576;
 const MAX_MULTIPART_BODY_BYTES = 22 * 1_048_576;

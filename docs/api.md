@@ -92,14 +92,22 @@ The web app's same-origin `/api/auth/login`, `/api/auth/logout`, and `/api/messa
 
 ## Socket.IO
 
-Connect to the API Socket.IO server with the access token as `auth.token` (or an `Authorization: Bearer ...` header). The server uses Redis for its Socket.IO adapter.
+The web app obtains a 60-second, socket-only connection ticket through authenticated `POST /realtime/session` (proxied by `/api/backend/realtime/session`). Connect to the API Socket.IO server with the ticket as `auth.token`. HTTP API access tokens are also accepted for non-browser clients; socket tickets cannot authenticate HTTP API requests. Each reconnect obtains a fresh ticket. The server uses Redis for its Socket.IO adapter.
+
+The web proxy returns the browser-reachable Socket.IO origin from `REALTIME_URL`, falling back to the origin of `API_BASE_URL`. Set `REALTIME_URL` when the internal API hostname is not browser-reachable. Use HTTPS/WSS in production, expose `/socket.io/` with WebSocket upgrades, and include the web origin in API `CORS_ORIGINS` (or `WEB_URL`).
+
+Authenticated sockets automatically join their user room. Message changes, receipts, reactions, attachment changes, and call updates are broadcast to active conversation members' user rooms, so an open conversation subscription is not required. New private conversations emit `conversation:updated`. On reconnect the web app refetches conversations and open messages to recover missed events; polling remains a fallback.
 
 Client events:
 
 - `conversation:join` / `conversation:leave` with `{ "conversationId": "..." }`
 - `call:signal` with `{ "callId": "...", "targetUserId": "...", "type": "offer|answer|ice-candidate", "payload": ... }`
 
-Server events include `message:created`, `message:updated`, `message:deleted`, `message:reaction`, `message:receipt`, `call:incoming`, `call:updated`, and relayed `call:signal`.
+Server events include `conversation:updated`, `message:created`, `message:updated`, `message:deleted`, `message:attachment`, `message:reaction`, `message:receipt`, `call:incoming`, `call:updated`, and relayed `call:signal`. Conversation-scoped events include `conversation_id`.
+
+`message:notification` is sent separately to recipients with account notifications enabled, no active mute, and conversation policy `all`. `none` and `mentions_only` suppress generic alerts; mention detection is not implemented. Notification preferences never suppress message delivery. The web app shows in-app alerts outside the visible conversation and browser alerts for hidden tabs after the user grants permission in notification settings. Closed-browser/offline Web Push delivery is not implemented.
+
+Receiving a live message acknowledges delivery. Visible conversation messages are marked read through the receipt API; sender check marks update from receipt events. Read-receipt opt-out is enforced by the API.
 
 ## Health
 

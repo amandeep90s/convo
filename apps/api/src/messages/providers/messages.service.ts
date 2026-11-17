@@ -187,7 +187,16 @@ export class MessagesService {
         type: true,
         members: {
           where: { user_id: { not: userId }, left_at: null },
-          select: { user_id: true },
+          select: {
+            user_id: true,
+            muted_until: true,
+            notification_policy: true,
+            user: {
+              select: {
+                settings: { select: { notification_enabled: true } },
+              },
+            },
+          },
         },
       },
     });
@@ -268,11 +277,24 @@ export class MessagesService {
       return created;
     });
     const response = serializeMessage(message);
-    this.realtime.emitConversationEvent(
+    await this.realtime.emitConversationEvent(
       data.conversation_id,
       'message:created',
       response,
     );
+    for (const member of conversation.members) {
+      if (
+        member.user.settings?.notification_enabled !== false &&
+        member.notification_policy === 'all' &&
+        (!member.muted_until || member.muted_until <= new Date())
+      ) {
+        this.realtime.emitUserEvent(
+          member.user_id,
+          'message:notification',
+          response,
+        );
+      }
+    }
     return response;
   }
 
@@ -298,7 +320,7 @@ export class MessagesService {
         },
       },
     });
-    this.realtime.emitConversationEvent(
+    await this.realtime.emitConversationEvent(
       message.conversation_id,
       'message:updated',
       updated,
@@ -345,7 +367,7 @@ export class MessagesService {
         deletion_kind: true,
       },
     });
-    this.realtime.emitConversationEvent(
+    await this.realtime.emitConversationEvent(
       message.conversation_id,
       'message:deleted',
       deleted,

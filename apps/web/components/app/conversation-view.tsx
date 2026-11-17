@@ -1,9 +1,10 @@
 'use client';
 
+import type { TMessageReceipt } from '@repo/shared';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { ArrowDown, ArrowLeft } from 'lucide-react';
+import { ArrowDown, ArrowLeft, Check, CheckCheck } from 'lucide-react';
 import Link from 'next/link';
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import { MemberManager } from '@/components/app/member-manager';
 import { MessageComposer } from '@/components/app/message-composer';
@@ -29,11 +30,23 @@ type Message = {
   created_at: string;
   sender: Person;
   attachments: Array<{ id: string; file_name: string | null; mime_type: string }>;
+  receipts: TMessageReceipt[];
 };
 type MessagePage = { items: Message[]; nextCursor: string | null; hasMore: boolean };
 
 export function ConversationView({ conversationId }: { conversationId: string }) {
   const { data: currentUser } = useCurrentUser();
+  const [isVisible, setIsVisible] = useState(false);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+  const acknowledged = useRef(new Set<string>());
+  const receiptQueue = useRef(Promise.resolve());
+
+  useEffect(() => {
+    const updateVisibility = () => setIsVisible(document.visibilityState === 'visible');
+    updateVisibility();
+    document.addEventListener('visibilitychange', updateVisibility);
+    return () => document.removeEventListener('visibilitychange', updateVisibility);
+  }, []);
 
   const conversation = useQuery({
     queryKey: ['conversation', conversationId],
@@ -56,6 +69,29 @@ export function ConversationView({ conversationId }: { conversationId: string })
     () => messages.data?.pages.flatMap((page) => page.items).reverse() ?? [],
     [messages.data],
   );
+  useEffect(() => {
+    if (!isVisible || !currentUser) return;
+    const unread = orderedMessages.filter((message) => {
+      const key = `${currentUser.id}:${message.id}`;
+      return (
+        message.sender_id !== currentUser.id &&
+        !acknowledged.current.has(key) &&
+        !(message.receipts ?? []).some((receipt) => receipt.user_id === currentUser.id && receipt.read_at)
+      );
+    });
+    for (const message of unread) acknowledged.current.add(`${currentUser.id}:${message.id}`);
+    receiptQueue.current = receiptQueue.current.then(async () => {
+      for (const message of unread) {
+        try {
+          await apiRequest(`message-receipts/${message.id}/read`, { method: 'PATCH' });
+          setReceiptError(null);
+        } catch (reason) {
+          acknowledged.current.delete(`${currentUser.id}:${message.id}`);
+          setReceiptError(reason instanceof Error ? reason.message : 'Could not mark messages as read.');
+        }
+      }
+    });
+  }, [currentUser, isVisible, orderedMessages]);
   const otherMember = currentUser
     ? conversation.data?.members.find(({ user_id }) => user_id !== currentUser.id)?.user
     : undefined;
@@ -129,6 +165,10 @@ export function ConversationView({ conversationId }: { conversationId: string })
             )}
             {orderedMessages.map((message) => {
               const isOwn = message.sender_id === currentUser?.id;
+              const receipts = message.receipts ?? [];
+              const isRead = receipts.length > 0 && receipts.every((receipt) => receipt.read_at);
+              const isDelivered =
+                receipts.length > 0 && receipts.every((receipt) => receipt.delivered_at || receipt.read_at);
               return (
                 <article className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`} key={message.id}>
                   <div
@@ -154,9 +194,26 @@ export function ConversationView({ conversationId }: { conversationId: string })
                         ))}
                       </ul>
                     )}
-                    <time className="mt-1 block text-right text-[11px] opacity-70" dateTime={message.created_at}>
-                      {formatTime(message.created_at)}
-                    </time>
+                    <span className="mt-1 flex items-center justify-end gap-1 text-[11px]">
+                      <time className="opacity-70" dateTime={message.created_at}>
+                        {formatTime(message.created_at)}
+                      </time>
+                      {isOwn && (
+                        <span
+                          aria-label={isRead ? 'Read' : isDelivered ? 'Delivered' : 'Sent'}
+                          title={isRead ? 'Read' : isDelivered ? 'Delivered' : 'Sent'}
+                        >
+                          {isRead || isDelivered ? (
+                            <CheckCheck
+                              aria-hidden="true"
+                              className={`size-3.5 ${isRead ? 'text-sky-500' : 'opacity-70'}`}
+                            />
+                          ) : (
+                            <Check aria-hidden="true" className="size-3.5 opacity-70" />
+                          )}
+                        </span>
+                      )}
+                    </span>
                   </div>
                 </article>
               );
@@ -168,6 +225,11 @@ export function ConversationView({ conversationId }: { conversationId: string })
       {conversation.isError && (
         <p className="border-t px-4 py-3 text-sm text-destructive" role="alert">
           Could not load this conversation. {conversation.error.message}
+        </p>
+      )}
+      {receiptError && (
+        <p className="border-t px-4 py-2 text-xs text-destructive" role="alert">
+          {receiptError}
         </p>
       )}
       <footer className="border-t bg-muted/50 p-3 md:px-6">

@@ -65,6 +65,7 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
       return apiRequest<ConversationListResponse>(`conversations?${params}`);
     },
     retry: false,
+    refetchInterval: 30000,
   });
   const filteredConversations =
     query.data?.data.filter((conversation) => {
