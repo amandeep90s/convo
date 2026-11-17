@@ -4,10 +4,11 @@ import type { Metadata } from 'next';
 import { Geist } from 'next/font/google';
 import localFont from 'next/font/local';
 import { NextIntlClientProvider } from 'next-intl';
-import { getLocale } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 
 import { QueryProvider } from '@/components/providers/query-provider';
 import { ThemeProvider } from '@/components/providers/theme-provider';
+import { messageKey } from '@/i18n/message-key';
 import { cn } from '@/lib/utils';
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
@@ -21,10 +22,13 @@ const geistMono = localFont({
   variable: '--font-geist-mono',
 });
 
-export const metadata: Metadata = {
-  title: 'Convo',
-  description: 'A simple chat application built with Next.js, TypeScript, and Tailwind CSS.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const text = await getTranslations('UI');
+  return {
+    title: 'Convo',
+    description: text(messageKey('Convo — private, connected conversations.')),
+  };
+}
 
 export default async function RootLayout({
   children,

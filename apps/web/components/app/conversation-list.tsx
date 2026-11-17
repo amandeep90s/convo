@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, ArchiveRestore, MessageCircle, Search, Star, StarOff } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useLocale } from 'next-intl';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 
@@ -51,6 +52,7 @@ const viewCopy: Record<ConversationMode, { title: string; description: string; e
 
 export function ConversationList({ mode }: { mode: ConversationMode }) {
   const text = useUiText();
+  const locale = useLocale();
   const { data: user } = useCurrentUser();
   const queryClient = useQueryClient();
   const [actionId, setActionId] = useState<string | null>(null);
@@ -98,7 +100,9 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
     <div className={`mx-auto flex min-h-0 w-full flex-col ${mode === 'recent' ? 'h-full' : 'max-w-5xl'}`}>
       <header className="flex flex-wrap items-center justify-between gap-4 px-5 pt-6 pb-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{mode === 'recent' ? text('Chats') : copy.title}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {mode === 'recent' ? text('Chats') : text(copy.title)}
+          </h1>
           {mode !== 'recent' && <p className="mt-2 text-sm text-muted-foreground">{text(copy.description)}</p>}
         </div>
         {mode === 'recent' && (
@@ -179,10 +183,10 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
                   </Avatar>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center justify-between gap-2">
-                      <span className="truncate font-medium">{text(title)}</span>
+                      <span className="truncate font-medium">{title}</span>
                       {message && (
                         <time className="shrink-0 text-xs text-muted-foreground" dateTime={message.created_at}>
-                          {formatDate(message.created_at)}
+                          {formatDate(message.created_at, locale)}
                         </time>
                       )}
                     </span>
@@ -233,10 +237,10 @@ function ListMessage({ children, role }: { children: ReactNode; role?: 'alert' }
   );
 }
 
-function formatDate(value: string): string {
+function formatDate(value: string, locale: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toDateString() === new Date().toDateString()
-    ? date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-    : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    ? date.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })
+    : date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }

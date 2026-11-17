@@ -91,8 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <MessageCircle aria-hidden="true" className="size-5" />
             </span>
             <span className="hidden text-xl font-semibold tracking-tight lg:inline">
-              {text('convo')}
-              <span className="text-primary">.</span>
+              convo<span className="text-primary">.</span>
             </span>
           </Link>
 
@@ -135,9 +134,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="md:hidden">
                 <MobileNavigation pathname={pathname} />
               </div>
-              <Link className="font-semibold tracking-tight md:hidden" href="/chat">
-                {text('convo')}
-                <span className="text-primary">.</span>
+              <Link className="hidden font-semibold tracking-tight min-[400px]:inline md:hidden" href="/chat">
+                convo<span className="text-primary">.</span>
               </Link>
               <p className="hidden truncate text-sm font-medium text-muted-foreground md:block">
                 {text(getPageTitle(pathname))}

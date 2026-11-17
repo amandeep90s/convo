@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { AudioLines, Video } from 'lucide-react';
 import Link from 'next/link';
+import { useLocale } from 'next-intl';
 import type { ReactNode } from 'react';
 
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,6 +22,7 @@ type PageResponse<T> = { data: T[]; total: number };
 
 export function CallHistory() {
   const text = useUiText();
+  const locale = useLocale();
   const calls = useQuery({
     queryKey: ['calls'],
     queryFn: () => apiRequest<PageResponse<Call>>('calls?page=1&limit=50'),
@@ -70,7 +72,7 @@ export function CallHistory() {
                   </div>
                 </div>
                 <time className="shrink-0 text-xs text-muted-foreground" dateTime={call.created_at}>
-                  {formatDate(call.created_at)}
+                  {text(formatDate(call.created_at, locale))}
                 </time>
               </CardContent>
             </Card>
@@ -88,7 +90,7 @@ function Status({ children, role }: { children: ReactNode; role?: 'alert' }) {
   );
 }
 
-function formatDate(value: string): string {
+function formatDate(value: string, locale: string): string {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 'unknown time' : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? 'unknown time' : date.toLocaleString(locale);
 }

@@ -17,9 +17,11 @@ export class ApiError extends Error {
 
 type ApiRequestInit = Omit<RequestInit, 'body'> & {
   body?: BodyInit | object | null;
+  redirectOnUnauthorized?: boolean;
 };
 
 export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
+  const { redirectOnUnauthorized = true, ...requestInit } = init;
   const headers = new Headers(init.headers);
   let body = init.body;
 
@@ -29,14 +31,14 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Pr
   }
 
   const response = await fetch(`/api/backend/${path.replace(/^\/+/, '')}`, {
-    ...init,
+    ...requestInit,
     body: body as BodyInit | null | undefined,
     headers,
     cache: 'no-store',
     credentials: 'same-origin',
   });
 
-  if (response.status === 401 && typeof window !== 'undefined') {
+  if (response.status === 401 && redirectOnUnauthorized && typeof window !== 'undefined') {
     const returnTo = `${window.location.pathname}${window.location.search}`;
     window.location.assign(`/login?next=${encodeURIComponent(returnTo)}`);
   }

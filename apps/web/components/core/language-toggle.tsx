@@ -35,7 +35,7 @@ export function LanguageToggle() {
         render={
           <Button variant="outline" size="icon">
             <Languages className="h-[1.2rem] w-[1.2rem]" />
-            <span className="sr-only">Change language</span>
+            <span className="sr-only">{text('Change language')}</span>
           </Button>
         }
       />

@@ -60,9 +60,7 @@ export function CallView({ callId }: { callId: string }) {
       <Card>
         <CardHeader>
           <CardTitle>
-            {call.data
-              ? `${call.data.type === 'video' ? text('Video') : text('Audio')} call · ${call.data.status}`
-              : text('Call session')}
+            {call.data ? `${text(call.data.type)} ${text('call ·')} ${text(call.data.status)}` : text('Call session')}
           </CardTitle>
         </CardHeader>
         <CardContent>

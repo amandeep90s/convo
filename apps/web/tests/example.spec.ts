@@ -169,6 +169,12 @@ test('incoming socket messages refresh the recipient list and visible chat witho
   sockets[0]!.send(`42${JSON.stringify(['message:created', message])}`);
   sockets[0]!.send(`42${JSON.stringify(['message:notification', message])}`);
   await expect(page.getByRole('status', { name: 'New message' })).toContainText('Live message from Jordan');
+  await expect(page.getByLabel('Unread notifications', { exact: true })).toHaveText('1');
+  await page.getByRole('button', { name: 'Notifications', exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: 'Mark all as read' })).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Mark all as read' }).click();
+  await expect(page.getByLabel('Unread notifications', { exact: true })).toHaveCount(0);
+  await page.keyboard.press('Escape');
   await expect(page.getByRole('link', { name: /Jordan/ }).first()).toBeVisible();
   await expect.poll(() => receipts.some((url) => url.endsWith('/incoming-1/delivered'))).toBe(true);
 
@@ -186,16 +192,180 @@ test('incoming socket messages refresh the recipient list and visible chat witho
 });
 
 test('home page renders the Convo application', async ({ page }) => {
+  let protectedRequests = 0;
+  await page.route('**/api/backend/user-settings', (route) => {
+    protectedRequests++;
+    return route.fulfill({ status: 503, json: { success: false, message: 'Unexpected public settings request' } });
+  });
   await page.goto('/');
 
   await expect(page).toHaveTitle('Convo');
-  await expect(page.getByRole('heading', { name: 'Convo App' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Good conversations. Closer connections.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Choose appearance theme' }).click();
+  await page.getByRole('menuitem', { name: 'Dark', exact: true }).click();
+  await expect(page.locator('html')).toHaveClass(/dark/);
+  expect(protectedRequests).toBe(0);
 });
+
+test('one credentials form advances to email OTP and redirects only after successful verification', async ({
+  page,
+}) => {
+  let verifications = 0;
+  await page.route('**/api/auth/login', async (route) => {
+    expect(route.request().postDataJSON()).toEqual({ identifier: 'alex@example.test', password: 'test-password' });
+    await route.fulfill({
+      json: { success: true, data: { email: 'alex@example.test', challengeToken: 'credential-bound-challenge' } },
+    });
+  });
+  await page.route('**/api/auth/login/otp/verify', async (route) => {
+    expect(route.request().postDataJSON()).toEqual({ challengeToken: 'credential-bound-challenge', code: '123456' });
+    verifications++;
+    if (verifications === 1) {
+      await route.fulfill({ status: 401, json: { success: false, message: 'Invalid or expired login code' } });
+      return;
+    }
+    await signInAsTestUser(page);
+    await route.fulfill({ json: { success: true } });
+  });
+  await page.goto('/login?next=%2Fsettings%2Faccount');
+  await expect(page.locator('form')).toHaveCount(1);
+  await page.getByLabel('Email or username').fill('alex@example.test');
+  await page.getByLabel('Password', { exact: true }).fill('test-password');
+  await page.getByRole('button', { name: 'Send login code' }).click();
+  await expect(page.getByLabel('Login code', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Password', { exact: true })).toHaveCount(0);
+  await expect(page).toHaveURL(/\/login/);
+  expect((await page.context().cookies()).some((cookie) => cookie.name === 'convo_access_token')).toBe(false);
+  await page.getByLabel('Login code', { exact: true }).fill('123456');
+  await page.getByRole('button', { name: 'Verify and sign in' }).click();
+  await expect(page.getByRole('alert')).toHaveText('Invalid or expired login code');
+  await expect(page).toHaveURL(/\/login/);
+  await page.getByRole('button', { name: 'Verify and sign in' }).click();
+  await expect(page).toHaveURL(/\/settings\/account/);
+});
+
+test('malformed challenges display an error without advancing to OTP', async ({ page }) => {
+  await page.route('**/api/auth/login', (route) => route.fulfill({ json: { success: true, data: {} } }));
+  await page.goto('/login');
+  await page.getByLabel('Email or username').fill('alex@example.test');
+  await page.getByLabel('Password', { exact: true }).fill('test-password');
+  await page.getByRole('button', { name: 'Send login code' }).click();
+  await expect(page.getByRole('alert')).toHaveText('Invalid response from the authentication service.');
+  await expect(page.getByLabel('Password', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Login code', { exact: true })).toHaveCount(0);
+});
+
+for (const [locale, heading, language, signIn, email, password, submit, required] of [
+  [
+    'pa',
+    'ਚੰਗੀਆਂ ਗੱਲਾਂ। ਹੋਰ ਨੇੜਲੇ ਰਿਸ਼ਤੇ।',
+    'ਭਾਸ਼ਾ ਬਦਲੋ',
+    'ਸਾਈਨ ਇਨ ਕਰੋ',
+    'ਈਮੇਲ ਜਾਂ ਵਰਤੋਂਕਾਰ ਨਾਮ',
+    'ਪਾਸਵਰਡ',
+    'ਲਾਗਇਨ ਕੋਡ ਭੇਜੋ',
+    'ਈਮੇਲ ਜਾਂ ਵਰਤੋਂਕਾਰ ਨਾਮ ਲਾਜ਼ਮੀ ਹੈ',
+  ],
+  [
+    'hi',
+    'अच्छी बातचीत। और करीबी रिश्ते।',
+    'भाषा बदलें',
+    'साइन इन करें',
+    'ईमेल या उपयोगकर्ता नाम',
+    'पासवर्ड',
+    'लॉगिन कोड भेजें',
+    'ईमेल या उपयोगकर्ता नाम आवश्यक है',
+  ],
+] as const) {
+  test(`language ${locale} localizes the homepage, login labels and validation`, async ({ page }) => {
+    await page.context().addCookies([{ name: 'locale', value: locale, url: 'http://127.0.0.1:3000' }]);
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveAttribute('lang', locale);
+    await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+    await expect(page.getByRole('button', { name: language })).toBeVisible();
+    await page.getByRole('link', { name: signIn, exact: true }).first().click();
+    await expect(page.getByLabel(email, { exact: true })).toBeVisible();
+    await expect(page.getByLabel(password, { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: submit }).click();
+    await expect(page.getByText(required, { exact: true })).toBeVisible();
+  });
+}
 
 test('guest is redirected from the protected application', async ({ page }) => {
   await page.goto('/chat');
 
   await expect(page).toHaveURL(/\/login/);
+});
+
+test('homepage navigation and calls to action follow the validated session', async ({ page }) => {
+  await page.goto('/');
+  await expect(
+    page.getByRole('navigation', { name: 'Account navigation' }).getByRole('link', { name: 'Sign in' }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Start your conversation' })).toHaveAttribute('href', '/register');
+
+  await signInAsTestUser(page);
+  await page.reload();
+  const navigation = page.getByRole('navigation', { name: 'Account navigation' });
+  await expect(navigation.getByRole('link', { name: 'Chats', exact: true })).toHaveAttribute('href', '/chat');
+  await expect(navigation.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('href', '/settings');
+  await expect(page.locator('a[href="/login"], a[href="/register"]')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Open conversations' }).first()).toHaveAttribute('href', '/chat');
+});
+
+test('signed-in users cannot reopen authentication pages', async ({ page }) => {
+  await signInAsTestUser(page);
+  await page.route('**/api/backend/conversations?*', (route) =>
+    route.fulfill({
+      json: { success: true, statusCode: 200, message: 'Loaded', data: { data: [], total: 0 } },
+    }),
+  );
+  for (const path of ['/login', '/register', '/forgot-password', '/reset-password?token=test-token']) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/chat$/);
+  }
+});
+
+test('invalid session cookies show guest links and do not loop back to chat', async ({ page }) => {
+  await page.context().addCookies([{ name: 'convo_access_token', value: 'invalid', url: 'http://127.0.0.1:3000' }]);
+  await page.route('**/api/backend/users/me', (route) =>
+    route.fulfill({
+      status: 401,
+      json: { success: false, message: 'Sign in to continue' },
+    }),
+  );
+  await page.goto('/');
+  await expect(
+    page.getByRole('navigation', { name: 'Account navigation' }).getByRole('link', { name: 'Sign in' }),
+  ).toBeVisible();
+  await page.goto('/login');
+  await expect(page.getByLabel('Email or username')).toBeVisible();
+  await expect(page).toHaveURL(/\/login$/);
+});
+
+test('refresh-only sessions are checked before rendering auth pages', async ({ page }) => {
+  await signInAsTestUser(page);
+  await page.context().clearCookies();
+  await page
+    .context()
+    .addCookies([{ name: 'convo_refresh_token', value: 'refresh-only', url: 'http://127.0.0.1:3000' }]);
+  await page.goto('/login');
+  await expect(page).toHaveURL(/\/chat$/);
+});
+
+test('session service failures show a retry instead of treating the user as signed out', async ({ page }) => {
+  await page.context().addCookies([{ name: 'convo_access_token', value: 'session', url: 'http://127.0.0.1:3000' }]);
+  await page.route('**/api/backend/users/me', (route) =>
+    route.fulfill({
+      status: 503,
+      json: { success: false, message: 'Could not contact the API service' },
+    }),
+  );
+  await page.goto('/login');
+  await expect(page.getByRole('alert')).toContainText('Could not load your profile.');
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
+  await expect(page.getByLabel('Email or username')).toHaveCount(0);
+  await expect(page).toHaveURL(/\/login$/);
 });
 
 test('conversation list loads through the authenticated same-origin API', async ({ page }) => {
@@ -409,7 +579,7 @@ test('message search submits filters and renders matching messages', async ({ pa
   await page.getByLabel('From date').fill('2026-11-01');
   await page.getByLabel('To date').fill('2026-11-16');
   await page.getByLabel('Attachment').selectOption('image');
-  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await page.getByRole('button', { name: 'Search messages', exact: true }).click();
 
   await expect(page.getByText('Project update is ready')).toBeVisible();
   await expect(page.getByText('Team chat', { exact: false })).toBeVisible();

@@ -5,7 +5,12 @@ import { Bell } from 'lucide-react';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useUiText } from '@/i18n/ui-text';
 
 export type NotificationItem = { message: RealtimeMessage; read: boolean };
@@ -25,11 +30,11 @@ export function NotificationBell({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button aria-label="Notifications" className="relative rounded-xl" size="icon" variant="outline">
+          <Button aria-label={text('Notifications')} className="relative rounded-xl" size="icon" variant="outline">
             <Bell aria-hidden="true" className="size-4" />
             {unread > 0 && (
               <span
-                aria-label="Unread notifications"
+                aria-label={text('Unread notifications')}
                 className="absolute -top-1 -right-1 grid min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground"
               >
                 {unread > 49 ? '49+' : unread}
@@ -42,9 +47,9 @@ export function NotificationBell({
         <div className="flex items-center justify-between gap-3 border-b p-2">
           <p className="font-semibold">{text('Notifications')}</p>
           {unread > 0 && (
-            <Button onClick={onReadAll} size="sm" variant="ghost">
+            <DropdownMenuItem className="rounded-lg text-xs" onClick={onReadAll}>
               {text('Mark all as read')}
-            </Button>
+            </DropdownMenuItem>
           )}
         </div>
         <div className="max-h-80 overflow-y-auto">
@@ -52,9 +57,9 @@ export function NotificationBell({
             <p className="px-3 py-8 text-center text-sm text-muted-foreground">{text('No new notifications.')}</p>
           )}
           {items.map(({ message, read }) => (
-            <Link
-              className={`mt-1 block rounded-xl p-3 text-sm hover:bg-muted ${read ? '' : 'bg-primary/5'}`}
-              href={`/chat/${message.conversation_id}`}
+            <DropdownMenuItem
+              className={`mt-1 block cursor-pointer rounded-xl p-3 text-sm ${read ? '' : 'bg-primary/5'}`}
+              render={<Link href={`/chat/${message.conversation_id}`} />}
               key={message.id}
               onClick={() => onRead(message.id)}
             >
@@ -62,7 +67,7 @@ export function NotificationBell({
               <span className="line-clamp-2 text-muted-foreground">
                 {message.content || text('Shared an attachment')}
               </span>
-            </Link>
+            </DropdownMenuItem>
           ))}
         </div>
       </DropdownMenuContent>

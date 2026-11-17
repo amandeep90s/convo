@@ -47,10 +47,10 @@ export function ThemeToggle({ persist = false }: { persist?: boolean }) {
   });
 
   useEffect(() => {
-    if (settings.data?.theme && themes.some(({ value }) => value === settings.data.theme)) {
+    if (persist && settings.data?.theme && themes.some(({ value }) => value === settings.data.theme)) {
       setTheme(settings.data.theme);
     }
-  }, [settings.data?.theme, setTheme]);
+  }, [persist, settings.data?.theme, setTheme]);
 
   function chooseTheme(nextTheme: (typeof themes)[number]['value']) {
     setTheme(nextTheme);
@@ -63,10 +63,10 @@ export function ThemeToggle({ persist = false }: { persist?: boolean }) {
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <Button aria-label="Choose appearance theme" className="rounded-xl" size="icon" variant="outline">
+            <Button aria-label={text('Choose appearance theme')} className="rounded-xl" size="icon" variant="outline">
               <Sun className="size-[1.15rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
               <Moon className="absolute size-[1.15rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
-              <span className="sr-only">Choose appearance theme</span>
+              <span className="sr-only">{text('Choose appearance theme')}</span>
             </Button>
           }
         />
@@ -79,7 +79,7 @@ export function ThemeToggle({ persist = false }: { persist?: boolean }) {
               {theme === value && <Check aria-hidden="true" className="ml-auto size-4 text-primary" />}
             </DropdownMenuItem>
           ))}
-          {settings.isError && (
+          {persist && settings.isError && (
             <p className="px-2.5 py-2 text-xs text-destructive" role="alert">
               {text('Saved theme is unavailable. You can still change this device’s appearance.')}
             </p>

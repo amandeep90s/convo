@@ -44,13 +44,24 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const payload = await response.json();
+      const payload: unknown = await response.json();
+      if (!payload || typeof payload !== 'object' || !('success' in payload)) {
+        setError(text('Invalid response from the authentication service.'));
+        return;
+      }
       if (!response.ok || payload.success !== true) {
-        setError(payload.message || text('Sign in failed'));
+        setError(
+          'message' in payload && typeof payload.message === 'string' ? payload.message : text('Sign in failed'),
+        );
         return;
       }
       if (!challenge) {
-        const nextChallenge = loginChallengeSchema.parse(payload.data);
+        const result = loginChallengeSchema.safeParse('data' in payload ? payload.data : undefined);
+        if (!result.success) {
+          setError(text('Invalid response from the authentication service.'));
+          return;
+        }
+        const nextChallenge = result.data;
         verification.reset({ challengeToken: nextChallenge.challengeToken, code: '' });
         credentials.resetField('password');
         setChallenge(nextChallenge);
@@ -71,9 +82,9 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
       description={text('Enter your credentials, then confirm the code sent to your email.')}
       footer={
         <p>
-          New to Convo?{' '}
+          {text('New to Convo?')}{' '}
           <Link className="font-medium underline underline-offset-4" href="/register">
-            Create an account
+            {text('Create an account')}
           </Link>
         </p>
       }
@@ -91,6 +102,7 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
                 autoComplete="username"
                 className="h-11 rounded-xl"
                 aria-invalid={Boolean(credentials.formState.errors.identifier)}
+                aria-describedby={credentials.formState.errors.identifier ? 'identifier-error' : undefined}
                 {...credentials.register('identifier')}
               />
               <AuthFieldError id="identifier" message={credentials.formState.errors.identifier?.message} />
@@ -108,6 +120,7 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
                 type="password"
                 className="h-11 rounded-xl"
                 aria-invalid={Boolean(credentials.formState.errors.password)}
+                aria-describedby={credentials.formState.errors.password ? 'password-error' : undefined}
                 {...credentials.register('password')}
               />
               <AuthFieldError id="password" message={credentials.formState.errors.password?.message} />
@@ -128,6 +141,7 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
               maxLength={6}
               className="h-12 rounded-xl text-center text-lg tracking-[0.45em]"
               aria-invalid={Boolean(verification.formState.errors.code)}
+              aria-describedby={verification.formState.errors.code ? 'login-code-error' : undefined}
               {...verification.register('code')}
             />
             <AuthFieldError id="login-code" message={verification.formState.errors.code?.message} />

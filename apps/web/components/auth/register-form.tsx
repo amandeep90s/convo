@@ -53,9 +53,9 @@ export function RegisterForm() {
       description={text('Join your conversations with a verified email address.')}
       footer={
         <p>
-          Already have an account?{' '}
+          {text('Already have an account?')}{' '}
           <Link className="font-medium text-foreground underline underline-offset-4" href="/login">
-            Sign in
+            {text('Sign in')}
           </Link>
         </p>
       }

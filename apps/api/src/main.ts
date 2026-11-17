@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { cleanupOpenApiDoc, ZodValidationPipe } from 'nestjs-zod';
@@ -16,7 +17,22 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api/v1');
 
-  app.use(helmet());
+  const defaultSecurityHeaders = helmet();
+  const swaggerSecurityHeaders = helmet({
+    contentSecurityPolicy: {
+      directives: {
+        scriptSrc: ["'self'", "'unsafe-eval'"],
+      },
+    },
+  });
+  app.use((request: Request, response: Response, next: NextFunction) => {
+    const isSwaggerUiPage =
+      request.path === '/api/v1/docs' || request.path === '/api/v1/docs/';
+    const securityHeaders = isSwaggerUiPage
+      ? swaggerSecurityHeaders
+      : defaultSecurityHeaders;
+    securityHeaders(request, response, next);
+  });
 
   app.enableCors({
     origin: configService.getOrThrow<string[]>('app.corsOrigins'),

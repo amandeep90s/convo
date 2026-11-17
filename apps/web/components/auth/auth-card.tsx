@@ -114,11 +114,12 @@ export function AuthSuccess({ children }: { children: React.ReactNode }) {
 }
 
 export function AuthFieldError({ id, message }: { id: string; message?: string }) {
+  const text = useUiText();
   if (!message) return null;
 
   return (
     <p className="text-xs font-medium text-destructive" id={`${id}-error`}>
-      {message}
+      {text(message)}
     </p>
   );
 }

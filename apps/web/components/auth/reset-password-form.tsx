@@ -61,7 +61,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
       description={text('Use a strong password you have not used before.')}
       footer={
         <Link className="font-medium text-foreground underline underline-offset-4" href="/login">
-          Return to sign in
+          {text('Return to sign in')}
         </Link>
       }
     >

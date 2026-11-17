@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { searchMessagesParamsSchema, type TMessage, type TUser } from '@repo/shared';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import Link from 'next/link';
+import { useLocale } from 'next-intl';
 import { type ReactNode, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -52,13 +53,10 @@ const messageSearchFormSchema = z
 
 type MessageSearchValues = z.output<typeof messageSearchFormSchema>;
 
-const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
-
 export default function SearchPage() {
   const text = useUiText();
+  const locale = useLocale();
+  const dateFormatter = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' });
   const [searchCriteria, setSearchCriteria] = useState<MessageSearchValues | null>(null);
   const [searchedQuery, setSearchedQuery] = useState('');
   const [results, setResults] = useState<SearchMessage[]>([]);
@@ -258,14 +256,8 @@ export default function SearchPage() {
       {results.length > 0 && (
         <section aria-label={text('Search results')} className="flex flex-col gap-3">
           <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <p>
-              {total} {text('result')}
-              {total === 1 ? '' : 's'}
-            </p>
-            <p>
-              {text('Page')}
-              {page} {text('of')} {totalPages}
-            </p>
+            <p>{text('{count, plural, one {# result} other {# results}}', { count: total })}</p>
+            <p>{text('Page {page} of {totalPages}', { page, totalPages })}</p>
           </div>
           {results.map((result) => (
             <Card key={result.id}>
@@ -296,7 +288,7 @@ export default function SearchPage() {
                         className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground"
                         key={attachment.id}
                       >
-                        {attachment.file_name ?? attachment.type}
+                        {attachment.file_name ?? text(attachment.type)}
                       </li>
                     ))}
                   </ul>

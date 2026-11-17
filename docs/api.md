@@ -11,17 +11,19 @@ Interactive Swagger documentation is available at `/api/v1/docs`. Request bodies
 | POST | `/auth/register` | Public | Register and queue an email verification message |
 | POST | `/auth/verify-email` | Public | Verify an email token |
 | POST | `/auth/resend-verification` | Public | Resend verification instructions |
-| POST | `/auth/login` | Public | Check credentials and create a device/session |
-| POST | `/auth/login/otp/request` | Public | Request an email login code without disclosing account existence |
-| POST | `/auth/login/otp/verify` | Public | Verify an email login code and create a device/session |
+| POST | `/auth/login` | Public | Validate credentials and send an email login code |
+| POST | `/auth/login/otp/request` | Public | Credential-validated alias for requesting a login code |
+| POST | `/auth/login/otp/verify` | Public | Verify the credential-bound challenge and code, then create a device/session |
 | POST | `/auth/refresh` | Public | Rotate a refresh token and issue a new access token |
 | POST | `/auth/logout` | Authenticated | Revoke the current session |
 | POST | `/auth/forgot-password` | Public | Queue password reset instructions without disclosing account existence |
 | POST | `/auth/reset-password` | Public | Change the password with a single-use token and revoke sessions |
 
-Login returns an `accessToken`, `refreshToken`, `expiresAt`, and user summary. Refresh tokens are stored as hashes and rotated on use.
+Login is a two-step flow. Submit `{ "identifier": "user@example.com", "password": "..." }` (a username also works) to `/auth/login`. Only verified, active accounts with valid credentials receive a code. This stage returns `{ "challengeToken": "...", "email": "user@example.com" }` and does not create a session or set auth cookies.
 
-Request a login code with `{ "email": "user@example.com" }`. Verified, active accounts receive a six-digit code by email; it expires after 10 minutes, can be used once, and allows at most five failed attempts. The request response is the same whether or not an eligible account exists. Verify with `{ "email": "user@example.com", "code": "123456" }`; success returns the normal login session. Both OTP endpoints are rate-limited.
+Submit `{ "challengeToken": "...", "code": "123456" }` to `/auth/login/otp/verify`. The signed challenge is bound to the account and issued code; email-only requests and verification without a challenge are rejected. Codes expire after 10 minutes, are single-use, and allow at most five failed attempts. Credential submissions within 60 seconds reuse the current code. Both credential routes and code verification are rate-limited.
+
+Successful verification returns an `accessToken`, `refreshToken`, `expiresAt`, and user summary. The web proxy stores tokens in HTTP-only cookies only after verification. Refresh tokens are hashed and rotated on use. Set `JWT_ACCESS_TOKEN_TTL=1h` as shown in `.env.example` and restart the API to use one-hour access tokens; automatic refresh remains enabled with the unchanged seven-day refresh-token lifetime.
 
 ## Profiles, contacts, and settings
 

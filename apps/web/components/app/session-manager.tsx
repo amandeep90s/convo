@@ -3,6 +3,7 @@
 import type { TUserDevice, TUserSession } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Monitor, ShieldCheck } from 'lucide-react';
+import { useLocale } from 'next-intl';
 import { type ReactNode, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ type Session = Pick<TUserSession, 'id' | 'device_id' | 'ip_address' | 'user_agen
 
 export function SessionManager() {
   const text = useUiText();
+  const locale = useLocale();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const sessions = useQuery({
@@ -79,13 +81,15 @@ export function SessionManager() {
               <div className="flex min-w-0 items-start gap-3">
                 <Monitor aria-hidden="true" className="mt-1 size-5 shrink-0 text-primary" />
                 <div className="min-w-0">
-                  <p className="truncate font-medium">{session.device.device_name || session.device.device_type}</p>
+                  <p className="truncate font-medium">
+                    {session.device.device_name || text(session.device.device_type)}
+                  </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {text('Signed in')} {formatDate(session.created_at)}
+                    {text('Signed in')} {text(formatDate(session.created_at, locale))}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {session.ip_address ? text('IP {value0} · ', { value0: session.ip_address }) : ''}
-                    {text('Expires')} {formatDate(session.expires_at)}
+                    {text('Expires')} {text(formatDate(session.expires_at, locale))}
                   </p>
                 </div>
               </div>
@@ -116,7 +120,7 @@ function Status({ children, role }: { children: ReactNode; role?: 'alert' }) {
   );
 }
 
-function formatDate(value: string | Date): string {
+function formatDate(value: string | Date, locale: string): string {
   const date = new Date(String(value));
-  return Number.isNaN(date.getTime()) ? 'unknown time' : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? 'unknown time' : date.toLocaleString(locale);
 }

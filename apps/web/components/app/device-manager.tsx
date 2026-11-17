@@ -3,6 +3,7 @@
 import type { TUserDevice, TUserSession } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Smartphone } from 'lucide-react';
+import { useLocale } from 'next-intl';
 import { type ReactNode, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ type Device = Pick<TUserDevice, 'id' | 'user_id' | 'device_type' | 'device_name'
 
 export function DeviceManager() {
   const text = useUiText();
+  const locale = useLocale();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const devices = useQuery({
@@ -63,10 +65,10 @@ export function DeviceManager() {
               <div className="flex min-w-0 items-start gap-3">
                 <Smartphone aria-hidden="true" className="mt-1 size-5 shrink-0 text-primary" />
                 <div className="min-w-0">
-                  <p className="truncate font-medium">{device.device_name || device.device_type}</p>
+                  <p className="truncate font-medium">{device.device_name || text(device.device_type)}</p>
                   <p className="text-sm text-muted-foreground">
-                    {text('Last active')}
-                    {device.last_seen_at ? formatDate(device.last_seen_at) : text('not available')}
+                    {text('Last active')}{' '}
+                    {device.last_seen_at ? text(formatDate(device.last_seen_at, locale)) : text('not available')}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {device.sessions.length} {text('active session(s)')}
@@ -101,7 +103,7 @@ function Status({ children, role }: { children: ReactNode; role?: 'alert' }) {
   );
 }
 
-function formatDate(value: string | Date): string {
+function formatDate(value: string | Date, locale: string): string {
   const date = new Date(String(value));
-  return Number.isNaN(date.getTime()) ? 'unknown time' : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? 'unknown time' : date.toLocaleString(locale);
 }

@@ -4,6 +4,7 @@ import type { TMessageReceipt } from '@repo/shared';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { ArrowDown, ArrowLeft, Check, CheckCheck } from 'lucide-react';
 import Link from 'next/link';
+import { useLocale } from 'next-intl';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import { MemberManager } from '@/components/app/member-manager';
@@ -37,6 +38,7 @@ type MessagePage = { items: Message[]; nextCursor: string | null; hasMore: boole
 
 export function ConversationView({ conversationId }: { conversationId: string }) {
   const text = useUiText();
+  const locale = useLocale();
   const { data: currentUser } = useCurrentUser();
   const [isVisible, setIsVisible] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
@@ -203,7 +205,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
                     )}
                     <span className="mt-1 flex items-center justify-end gap-1 text-[11px]">
                       <time className="opacity-70" dateTime={message.created_at}>
-                        {formatTime(message.created_at)}
+                        {formatTime(message.created_at, locale)}
                       </time>
                       {isOwn && (
                         <span
@@ -255,7 +257,7 @@ function Status({ children, role }: { children: ReactNode; role?: 'alert' }) {
   );
 }
 
-function formatTime(value: string): string {
+function formatTime(value: string, locale: string): string {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
 }

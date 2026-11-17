@@ -73,7 +73,7 @@ export function VerifyEmailForm({ initialToken = '' }: { initialToken?: string }
       description={text('Verify your email address to activate your account.')}
       footer={
         <Link className="font-medium text-foreground underline underline-offset-4" href="/login">
-          Return to sign in
+          {text('Return to sign in')}
         </Link>
       }
     >
