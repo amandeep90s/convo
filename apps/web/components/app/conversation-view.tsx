@@ -47,7 +47,7 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [showLatest, setShowLatest] = useState(false);
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set());
-  const unreadBoundary = useRef<string | null | undefined>(undefined);
+  const [unreadBoundary, setUnreadBoundary] = useState<string | null | undefined>(undefined);
   const prependPosition = useRef<{ height: number; top: number } | null>(null);
   const { typers } = useChatActivity();
   const acknowledged = useRef(new Set<string>());
@@ -88,6 +88,9 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
       ].reverse(),
     [messages.data],
   );
+  if (unreadBoundary === undefined && messages.isSuccess) {
+    setUnreadBoundary(messages.data.pages[0]?.firstUnreadId ?? null);
+  }
   const pins = useQuery({
     queryKey: ['pinned-messages', conversationId],
     queryFn: () => apiRequest<ChatPinnedMessage[]>(`pinned-messages?conversationId=${conversationId}`),
@@ -142,9 +145,6 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
     const viewport = messageViewport.current;
     if (!viewport) return;
     const latest = orderedMessages.at(-1);
-    if (unreadBoundary.current === undefined) {
-      unreadBoundary.current = messages.data?.pages[0]?.firstUnreadId ?? null;
-    }
     if (prependPosition.current) {
       const previous = prependPosition.current;
       viewport.scrollTop = previous.top + viewport.scrollHeight - previous.height;
@@ -158,7 +158,7 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
       setShowLatest(false);
     }
     previousLatest.current = { conversationId, messageId: latest?.id };
-  }, [conversationId, currentUser?.id, messages.isSuccess, orderedMessages]);
+  }, [conversationId, currentUser?.id, messages.data?.pages, messages.isSuccess, orderedMessages]);
 
   useEffect(() => {
     if (!isVisible || !currentUser) return;
@@ -356,7 +356,7 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
                 receipts.length > 0 && receipts.every((receipt) => receipt.delivered_at || receipt.read_at);
               return (
                 <Fragment key={message.id}>
-                  {unreadBoundary.current === message.id && (
+                  {unreadBoundary === message.id && (
                     <p
                       role="separator"
                       className="self-center rounded-full bg-background/90 px-4 py-1 text-xs font-medium text-primary"

@@ -1,7 +1,7 @@
 'use client';
 
 import type { ClientRealtimeEvents, ServerRealtimeEvents, TypingEvent } from '@repo/shared';
-import { createContext, type ReactNode,useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
 
 import { useUiText } from '@/i18n/ui-text';

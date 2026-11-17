@@ -60,7 +60,7 @@ export function MessageComposer({
   const inputRef = useRef<HTMLInputElement>(null);
   const selection = useRef<{ start: number; end: number } | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
-  const { control, register, handleSubmit, reset, watch, formState, getValues, setValue, setError } = useForm<
+  const { control, register, handleSubmit, reset, formState, getValues, setValue, setError } = useForm<
     z.input<typeof messageFormSchema>,
     unknown,
     z.output<typeof messageFormSchema>
@@ -74,7 +74,7 @@ export function MessageComposer({
   const [submitError, setSubmitError] = useState<string | null>(null);
   useEffect(() => {
     if (reply) inputRef.current?.focus();
-  }, [reply?.id]);
+  }, [reply]);
   useEffect(() => {
     if (!user?.id) return;
     const key = `convo:draft:${user.id}:${conversationId}`;
@@ -84,16 +84,17 @@ export function MessageComposer({
       setDraftError(text('Draft storage is unavailable. Keep this tab open to retain your text.'));
     }
     setDraftReady(true);
-    const subscription = watch((values) => {
-      try {
-        if (values.content) sessionStorage.setItem(key, values.content);
-        else sessionStorage.removeItem(key);
-      } catch {
-        setDraftError(text('Draft storage is unavailable. Keep this tab open to retain your text.'));
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [conversationId, user?.id, reset, watch, text]);
+  }, [conversationId, user?.id, reset, text]);
+  useEffect(() => {
+    if (!user?.id || !draftReady) return;
+    const key = `convo:draft:${user.id}:${conversationId}`;
+    try {
+      if (messageText) sessionStorage.setItem(key, messageText);
+      else sessionStorage.removeItem(key);
+    } catch {
+      setDraftError(text('Draft storage is unavailable. Keep this tab open to retain your text.'));
+    }
+  }, [conversationId, draftReady, messageText, text, user?.id]);
   useEffect(
     () => () => {
       clearTimeout(typingTimer.current);
@@ -251,7 +252,12 @@ export function MessageComposer({
           {text(formState.errors.content.message)}
         </p>
       )}
-      <form className="flex items-end gap-2" onSubmit={handleSubmit(submitMessage)}>
+      <form
+        className="flex items-end gap-2"
+        onSubmit={(event) => {
+          void handleSubmit(submitMessage)(event);
+        }}
+      >
         <input
           accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,audio/mpeg,audio/ogg,audio/wav,application/pdf,text/plain"
           className="sr-only"
