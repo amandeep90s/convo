@@ -15,6 +15,7 @@ import {
 import Link from 'next/link';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { useUiText } from '@/i18n/ui-text';
 
 const settingsSections = [
   {
@@ -86,20 +87,23 @@ const settingsSections = [
 ] as const;
 
 export function SettingsOverview() {
+  const text = useUiText();
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-7">
       <header className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-[#063f35] via-[#087e64] to-[#25a87e] px-6 py-7 text-white shadow-xl shadow-primary/15 sm:px-9 sm:py-9">
         <div aria-hidden="true" className="absolute -top-20 -right-10 size-64 rounded-full border border-white/15" />
         <div aria-hidden="true" className="absolute right-24 -bottom-28 size-52 rounded-full bg-white/10 blur-2xl" />
         <div className="relative">
-          <p className="text-xs font-semibold tracking-[0.18em] text-emerald-50/80 uppercase">Your workspace</p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Settings</h1>
+          <p className="text-xs font-semibold tracking-[0.18em] text-emerald-50/80 uppercase">
+            {text('Your workspace')}
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{text('Settings')}</h1>
           <p className="mt-2 max-w-xl text-sm leading-6 text-emerald-50/85">
-            Make Convo feel like yours. Manage your profile, preferences, and account security.
+            {text('Make Convo feel like yours. Manage your profile, preferences, and account security.')}
           </p>
         </div>
       </header>
-      <section aria-label="Settings categories" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <section aria-label={text('Settings categories')} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {settingsSections.map(({ href, title, description, icon: Icon }) => (
           <Link
             className="group rounded-[1.3rem] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
@@ -113,13 +117,13 @@ export function SettingsOverview() {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center justify-between gap-3">
-                    <span className="font-semibold">{title}</span>
+                    <span className="font-semibold">{text(title)}</span>
                     <ArrowRight
                       aria-hidden="true"
                       className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary"
                     />
                   </span>
-                  <span className="mt-1.5 block text-sm leading-5 text-muted-foreground">{description}</span>
+                  <span className="mt-1.5 block text-sm leading-5 text-muted-foreground">{text(description)}</span>
                 </span>
               </CardHeader>
             </Card>
@@ -130,7 +134,7 @@ export function SettingsOverview() {
         <CardContent className="flex-row items-center gap-3 py-4">
           <Shield aria-hidden="true" className="size-5 shrink-0 text-primary" />
           <p className="text-sm text-muted-foreground">
-            Your account preferences are saved to your profile and used across your signed-in sessions.
+            {text('Your account preferences are saved to your profile and used across your signed-in sessions.')}
           </p>
         </CardContent>
       </Card>

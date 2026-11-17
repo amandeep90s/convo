@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useUiText } from '@/i18n/ui-text';
 import { ApiError, apiRequest } from '@/lib/client/api';
 import { useCurrentUser } from '@/lib/client/use-current-user';
 
@@ -27,6 +28,7 @@ type Call = {
 };
 
 export function CallView({ callId }: { callId: string }) {
+  const text = useUiText();
   const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
   const [error, setError] = useState<string | null>(null);
@@ -45,36 +47,35 @@ export function CallView({ callId }: { callId: string }) {
         queryClient.invalidateQueries({ queryKey: ['calls'] }),
       ]);
     },
-    onError: (reason) => setError(reason instanceof ApiError ? reason.message : 'Could not update this call.'),
+    onError: (reason) => setError(reason instanceof ApiError ? reason.message : text('Could not update this call.')),
   });
   const ownParticipant = call.data?.participants.find(({ user_id }) => user_id === currentUser?.id);
 
   return (
     <div className="mx-auto w-full max-w-3xl">
       <header className="mb-6">
-        <h1 className="text-3xl font-semibold tracking-tight">Call details</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Session status and participants.</p>
+        <h1 className="text-3xl font-semibold tracking-tight">{text('Call details')}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{text('Session status and participants.')}</p>
       </header>
       <Card>
         <CardHeader>
           <CardTitle>
-            {call.data
-              ? `${call.data.type === 'video' ? 'Video' : 'Audio'} call · ${call.data.status}`
-              : 'Call session'}
+            {call.data ? `${text(call.data.type)} ${text('call ·')} ${text(call.data.status)}` : text('Call session')}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {call.isPending && <p className="text-sm text-muted-foreground">Loading call…</p>}
+          {call.isPending && <p className="text-sm text-muted-foreground">{text('Loading call…')}</p>}
           {call.isError && (
             <p className="text-sm text-destructive" role="alert">
-              {call.error.message}
+              {text(call.error.message)}
             </p>
           )}
           {call.data && (
             <div className="flex flex-col gap-4">
               <p className="text-sm text-muted-foreground">
-                Audio/video transport is not available in this web client. These controls update call session state
-                only.
+                {text(
+                  'Audio/video transport is not available in this web client. These controls update call session state only.',
+                )}
               </p>
               <ul className="flex flex-col divide-y">
                 {call.data.participants.map(({ user_id, user, joined_at, left_at }) => (
@@ -84,7 +85,7 @@ export function CallView({ callId }: { callId: string }) {
                       <p className="text-xs text-muted-foreground">@{user.username}</p>
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {left_at ? 'Left' : joined_at ? 'Joined' : 'Invited'}
+                      {left_at ? text('Left') : joined_at ? text('Joined') : text('Invited')}
                     </span>
                   </li>
                 ))}
@@ -93,7 +94,7 @@ export function CallView({ callId }: { callId: string }) {
                 {call.data.status === 'ringing' && call.data.initiated_by !== currentUser?.id && ownParticipant && (
                   <>
                     <Button disabled={updateCall.isPending} onClick={() => updateCall.mutate('accepted')} type="button">
-                      Accept session
+                      {text('Accept session')}
                     </Button>
                     <Button
                       disabled={updateCall.isPending}
@@ -101,7 +102,7 @@ export function CallView({ callId }: { callId: string }) {
                       type="button"
                       variant="outline"
                     >
-                      Decline
+                      {text('Decline')}
                     </Button>
                   </>
                 )}
@@ -112,7 +113,7 @@ export function CallView({ callId }: { callId: string }) {
                     type="button"
                     variant="destructive"
                   >
-                    End session
+                    {text('End session')}
                   </Button>
                 )}
                 {call.data.status === 'accepted' && call.data.initiated_by !== currentUser?.id && ownParticipant && (
@@ -122,7 +123,7 @@ export function CallView({ callId }: { callId: string }) {
                     type="button"
                     variant="outline"
                   >
-                    End session
+                    {text('End session')}
                   </Button>
                 )}
                 <Button
@@ -130,14 +131,14 @@ export function CallView({ callId }: { callId: string }) {
                   render={<Link href={`/chat/${call.data.conversation_id}`} />}
                   variant="outline"
                 >
-                  Open conversation
+                  {text('Open conversation')}
                 </Button>
               </div>
             </div>
           )}
           {error && (
             <p className="mt-4 text-sm text-destructive" role="alert">
-              {error}
+              {text(error)}
             </p>
           )}
         </CardContent>

@@ -12,8 +12,10 @@ import { AuthCard, AuthError, AuthFieldError, AuthSuccess } from '@/components/a
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useUiText } from '@/i18n/ui-text';
 
 export function RegisterForm() {
+  const text = useUiText();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [complete, setComplete] = useState(false);
@@ -34,12 +36,12 @@ export function RegisterForm() {
       });
       const payload = (await response.json()) as { success?: boolean; message?: string };
       if (!response.ok || !payload.success) {
-        setError(payload.message ?? 'Could not create your account.');
+        setError(payload.message ?? text('Could not create your account.'));
         return;
       }
       setComplete(true);
     } catch {
-      setError('Could not reach the registration service. Please try again.');
+      setError(text('Could not reach the registration service. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -47,33 +49,35 @@ export function RegisterForm() {
 
   return (
     <AuthCard
-      title="Create your account"
-      description="Join your conversations with a verified email address."
+      title={text('Create your account')}
+      description={text('Join your conversations with a verified email address.')}
       footer={
         <p>
-          Already have an account?{' '}
+          {text('Already have an account?')}{' '}
           <Link className="font-medium text-foreground underline underline-offset-4" href="/login">
-            Sign in
+            {text('Sign in')}
           </Link>
         </p>
       }
     >
       {complete ? (
         <div className="flex flex-col gap-4">
-          <AuthSuccess>Account created. Check your email for a verification link before signing in.</AuthSuccess>
+          <AuthSuccess>
+            {text('Account created. Check your email for a verification link before signing in.')}
+          </AuthSuccess>
           <Button
             className="h-11 rounded-xl bg-gradient-to-r from-[#087e64] to-[#12a178] font-semibold shadow-lg shadow-primary/20 hover:brightness-105"
             onClick={() => router.replace('/login')}
             type="button"
           >
-            Continue to sign in
+            {text('Continue to sign in')}
           </Button>
         </div>
       ) : (
         <form className="flex flex-col gap-4" onSubmit={form.handleSubmit(submit)}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">{text('Name')}</Label>
               <Input
                 autoComplete="name"
                 id="name"
@@ -86,7 +90,7 @@ export function RegisterForm() {
               <AuthFieldError id="name" message={form.formState.errors.name?.message} />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">{text('Username')}</Label>
               <Input
                 autoComplete="username"
                 id="username"
@@ -100,7 +104,7 @@ export function RegisterForm() {
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="email">Email address</Label>
+            <Label htmlFor="email">{text('Email address')}</Label>
             <Input
               autoComplete="email"
               id="email"
@@ -113,7 +117,7 @@ export function RegisterForm() {
             <AuthFieldError id="email" message={form.formState.errors.email?.message} />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{text('Password')}</Label>
             <Input
               autoComplete="new-password"
               id="password"
@@ -125,11 +129,11 @@ export function RegisterForm() {
             />
             <AuthFieldError id="password" message={form.formState.errors.password?.message} />
             <p className="text-xs text-muted-foreground">
-              Use at least 8 characters with upper- and lowercase letters, a number, and a symbol.
+              {text('Use at least 8 characters with upper- and lowercase letters, a number, and a symbol.')}
             </p>
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="confirmPassword">Confirm password</Label>
+            <Label htmlFor="confirmPassword">{text('Confirm password')}</Label>
             <Input
               autoComplete="new-password"
               id="confirmPassword"
@@ -141,13 +145,13 @@ export function RegisterForm() {
             />
             <AuthFieldError id="confirmPassword" message={form.formState.errors.confirmPassword?.message} />
           </div>
-          {error && <AuthError>{error}</AuthError>}
+          {error && <AuthError>{text(error)}</AuthError>}
           <Button
             className="h-11 rounded-xl bg-gradient-to-r from-[#087e64] to-[#12a178] font-semibold shadow-lg shadow-primary/20 hover:brightness-105"
             disabled={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? 'Creating account…' : 'Create account'}
+            {isSubmitting ? text('Creating account…') : text('Create account')}
           </Button>
         </form>
       )}

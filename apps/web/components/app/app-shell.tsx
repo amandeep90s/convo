@@ -1,5 +1,6 @@
 'use client';
 
+import type { RealtimeMessage } from '@repo/shared';
 import {
   Archive,
   AudioLines,
@@ -17,14 +18,17 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { ConversationList } from '@/components/app/conversation-list';
 import { LogoutButton } from '@/components/app/logout-button';
+import { NotificationBell, type NotificationItem } from '@/components/app/notification-bell';
 import { RealtimeUpdates } from '@/components/app/realtime-updates';
+import { LanguageToggle } from '@/components/core/language-toggle';
 import { ThemeToggle } from '@/components/core/theme-toggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { useUiText } from '@/i18n/ui-text';
 import { useCurrentUser } from '@/lib/client/use-current-user';
 
 const navigation = [
@@ -53,6 +57,13 @@ const settingsNavigation = [
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const text = useUiText();
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const receiveNotification = useCallback((message: RealtimeMessage) => {
+    setNotifications((items) =>
+      items.some((item) => item.message.id === message.id) ? items : [{ message, read: false }, ...items].slice(0, 50),
+    );
+  }, []);
   const pathname = usePathname();
   const { data: user, isPending, isError } = useCurrentUser();
   const isChat = pathname === '/chat' || pathname.startsWith('/chat/');
@@ -72,7 +83,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         <aside className="hidden w-[76px] shrink-0 flex-col border-r border-border/70 bg-background/75 px-2 py-5 backdrop-blur-xl md:flex lg:w-72 lg:px-4">
           <Link
-            aria-label="Convo home"
+            aria-label={text('Convo home')}
             className="mb-8 flex items-center justify-center gap-3 lg:justify-start lg:px-2"
             href="/chat"
           >
@@ -85,7 +96,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
 
           <p className="mb-2 hidden px-3 text-[10px] font-semibold tracking-[0.18em] text-muted-foreground uppercase lg:block">
-            Workspace
+            {text('Workspace')}
           </p>
           <AppNavigation pathname={pathname} />
 
@@ -98,10 +109,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <UserAvatar name={user?.name} isPending={isPending} isError={isError} />
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium">
-                    {isPending ? 'Loading account…' : isError ? 'Account unavailable' : (user?.name ?? 'Convo member')}
+                    {isPending
+                      ? text('Loading account…')
+                      : isError
+                        ? text('Account unavailable')
+                        : (user?.name ?? text('Convo member'))}
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">
-                    {user?.username ? `@${user.username}` : 'Your profile'}
+                    {user?.username ? `@${user.username}` : text('Your profile')}
                   </span>
                 </span>
               </Link>
@@ -113,29 +128,43 @@ export function AppShell({ children }: { children: ReactNode }) {
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <RealtimeUpdates />
+          <RealtimeUpdates onNotification={receiveNotification} />
           <header className="relative z-20 flex min-h-16 shrink-0 items-center justify-between border-b border-border/70 bg-background/85 px-3 backdrop-blur-xl sm:px-5 lg:px-7">
             <div className="flex min-w-0 items-center gap-3">
               <div className="md:hidden">
                 <MobileNavigation pathname={pathname} />
               </div>
-              <Link className="font-semibold tracking-tight md:hidden" href="/chat">
+              <Link className="hidden font-semibold tracking-tight min-[400px]:inline md:hidden" href="/chat">
                 convo<span className="text-primary">.</span>
               </Link>
               <p className="hidden truncate text-sm font-medium text-muted-foreground md:block">
-                {getPageTitle(pathname)}
+                {text(getPageTitle(pathname))}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              <ThemeToggle />
+              <NotificationBell
+                items={notifications}
+                onRead={(id) =>
+                  setNotifications((items) =>
+                    items.map((item) => (item.message.id === id ? { ...item, read: true } : item)),
+                  )
+                }
+                onReadAll={() => setNotifications((items) => items.map((item) => ({ ...item, read: true })))}
+              />
+              <LanguageToggle />
+              <ThemeToggle persist />
               <Link
-                aria-label="Open your profile settings"
+                aria-label={text('Open your profile settings')}
                 className="flex min-w-0 items-center gap-2 rounded-full transition-colors hover:bg-muted sm:rounded-2xl sm:py-1 sm:pr-3 sm:pl-1"
                 href="/settings/profile"
               >
                 <UserAvatar name={user?.name} isPending={isPending} isError={isError} />
                 <span className="hidden max-w-36 truncate text-sm font-medium sm:block">
-                  {isPending ? 'Loading…' : isError ? 'Account unavailable' : (user?.name ?? 'Your profile')}
+                  {isPending
+                    ? text('Loading…')
+                    : isError
+                      ? text('Account unavailable')
+                      : (user?.name ?? text('Your profile'))}
                 </span>
               </Link>
               <div className="md:hidden">
@@ -182,8 +211,9 @@ function AppNavigation({
   onNavigate?: () => void;
   expanded?: boolean;
 }) {
+  const text = useUiText();
   return (
-    <nav aria-label="Main navigation" className="flex flex-col gap-1.5">
+    <nav aria-label={text('Main navigation')} className="flex flex-col gap-1.5">
       {navigation.map(({ href, label, icon: Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
@@ -197,10 +227,10 @@ function AppNavigation({
             href={href}
             key={href}
             onClick={onNavigate}
-            title={label}
+            title={text(label)}
           >
             <Icon aria-hidden="true" className="size-[18px] shrink-0" />
-            <span className={expanded ? 'inline' : 'hidden lg:inline'}>{label}</span>
+            <span className={expanded ? 'inline' : 'hidden lg:inline'}>{text(label)}</span>
           </Link>
         );
       })}
@@ -209,14 +239,15 @@ function AppNavigation({
 }
 
 function SettingsNavigation({ pathname }: { pathname: string }) {
+  const text = useUiText();
   return (
     <aside className="min-w-0 lg:sticky lg:top-6 lg:self-start">
       <div className="mb-2 flex items-center gap-2 px-1 text-[10px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
         <Settings aria-hidden="true" className="size-3.5" />
-        Preferences
+        {text('Preferences')}
       </div>
       <nav
-        aria-label="Settings navigation"
+        aria-label={text('Settings navigation')}
         className="flex gap-1.5 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible"
       >
         {settingsNavigation.map(({ href, label, icon: Icon }) => {
@@ -233,7 +264,7 @@ function SettingsNavigation({ pathname }: { pathname: string }) {
               key={href}
             >
               <Icon aria-hidden="true" className="size-4 shrink-0" />
-              {label}
+              {text(label)}
             </Link>
           );
         })}
@@ -243,6 +274,7 @@ function SettingsNavigation({ pathname }: { pathname: string }) {
 }
 
 function MobileNavigation({ pathname }: { pathname: string }) {
+  const text = useUiText();
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -250,7 +282,7 @@ function MobileNavigation({ pathname }: { pathname: string }) {
       <Button
         aria-controls="mobile-app-navigation"
         aria-expanded={isOpen}
-        aria-label={isOpen ? 'Close navigation menu' : 'Open navigation menu'}
+        aria-label={isOpen ? text('Close navigation menu') : text('Open navigation menu')}
         className="rounded-xl border-border/70 bg-background shadow-sm"
         onClick={() => setIsOpen((open) => !open)}
         size="icon"

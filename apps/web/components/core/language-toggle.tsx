@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useUiText } from '@/i18n/ui-text';
 
 const locales = [
   { code: 'en', label: 'English' },
@@ -19,6 +20,7 @@ const locales = [
 ] as const;
 
 export function LanguageToggle() {
+  const text = useUiText();
   const locale = useLocale();
   const router = useRouter();
 
@@ -33,14 +35,14 @@ export function LanguageToggle() {
         render={
           <Button variant="outline" size="icon">
             <Languages className="h-[1.2rem] w-[1.2rem]" />
-            <span className="sr-only">Change language</span>
+            <span className="sr-only">{text('Change language')}</span>
           </Button>
         }
       />
       <DropdownMenuContent align="end">
         {locales.map(({ code, label }) => (
           <DropdownMenuItem key={code} disabled={locale === code} onClick={() => setLocale(code)}>
-            {label}
+            {text(label)}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

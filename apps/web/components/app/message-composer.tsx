@@ -3,16 +3,21 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { type CreateMessageDto, createMessageSchema } from '@repo/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Paperclip, Send } from 'lucide-react';
+import type { EmojiClickData } from 'emoji-picker-react';
+import { Paperclip, Send, Smile } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
+import { useUiText } from '@/i18n/ui-text';
 import { ApiError, apiRequest } from '@/lib/client/api';
 
 type CreatedMessage = { id: string };
+const ChatEmojiPicker = dynamic(() => import('@/components/app/chat-emoji-picker'), { ssr: false });
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const supportedFiles: Record<string, 'image' | 'video' | 'audio' | 'document'> = {
   'image/jpeg': 'image',
@@ -32,9 +37,13 @@ const messageFormSchema = createMessageSchema.pick({ content: true }).extend({
 });
 
 export function MessageComposer({ conversationId, disabled = false }: { conversationId: string; disabled?: boolean }) {
+  const text = useUiText();
   const queryClient = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
-  const { control, register, handleSubmit, reset, formState } = useForm<
+  const inputRef = useRef<HTMLInputElement>(null);
+  const selection = useRef<{ start: number; end: number } | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const { control, register, handleSubmit, reset, formState, getValues, setValue, setError } = useForm<
     z.input<typeof messageFormSchema>,
     unknown,
     z.output<typeof messageFormSchema>
@@ -43,6 +52,7 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
     defaultValues: { content: '' },
   });
   const messageText = useWatch({ control, name: 'content' }) ?? '';
+  const contentRegistration = register('content');
   const [uploading, setUploading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const sendMessage = useMutation({
@@ -53,16 +63,20 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
       }),
     onSuccess: async () => {
       reset();
+      selection.current = null;
+      setEmojiOpen(false);
       setSubmitError(null);
       try {
         await refreshConversationQueries();
       } catch (refreshError) {
         setSubmitError(
-          `Message sent, but the conversation could not refresh. ${toMessage(refreshError, 'Refresh the page to see it.')}`,
+          text('Message sent, but the conversation could not refresh. {value0}', {
+            value0: toMessage(refreshError, 'Refresh the page to see it.'),
+          }),
         );
       }
     },
-    onError: (error) => setSubmitError(toMessage(error, 'Could not send this message.')),
+    onError: (error) => setSubmitError(toMessage(error, text('Could not send this message.'))),
   });
 
   function submitMessage({ content }: z.output<typeof messageFormSchema>) {
@@ -71,16 +85,36 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
     sendMessage.mutate({ conversation_id: conversationId, type: 'text', content });
   }
 
+  function insertEmoji({ emoji }: EmojiClickData) {
+    if (disabled || uploading || sendMessage.isPending) return;
+    const current = getValues('content');
+    const start = selection.current?.start ?? current.length;
+    const end = selection.current?.end ?? start;
+    const value = current.slice(0, start) + emoji + current.slice(end);
+    if (value.length > 10000) {
+      setError('content', { type: 'maxLength', message: text('Messages must be 10,000 characters or fewer.') });
+      return;
+    }
+    setValue('content', value, { shouldDirty: true, shouldValidate: true });
+    const cursor = start + emoji.length;
+    selection.current = { start: cursor, end: cursor };
+    setEmojiOpen(false);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(cursor, cursor);
+    });
+  }
+
   async function uploadFile(file: File) {
     const type = supportedFiles[file.type];
     if (!type) {
       setSubmitError(
-        'This file type is not supported. Choose an image, MP4 video, supported audio file, PDF, or text file.',
+        text('This file type is not supported. Choose an image, MP4 video, supported audio file, PDF, or text file.'),
       );
       return;
     }
     if (file.size > MAX_FILE_BYTES) {
-      setSubmitError('Files must be 20 MB or smaller.');
+      setSubmitError(text('Files must be 20 MB or smaller.'));
       return;
     }
 
@@ -94,7 +128,7 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
         body,
       });
     } catch (error) {
-      setSubmitError(toMessage(error, 'Could not prepare the attachment.'));
+      setSubmitError(toMessage(error, text('Could not prepare the attachment.')));
       setUploading(false);
       return;
     }
@@ -107,9 +141,14 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
       let failureMessage: string;
       try {
         await apiRequest(`messages/${message.id}`, { method: 'DELETE' });
-        failureMessage = `Upload failed and the unsent message was removed. ${toMessage(uploadError, 'Please try again.')}`;
+        failureMessage = text('Upload failed and the unsent message was removed. {value0}', {
+          value0: toMessage(uploadError, 'Please try again.'),
+        });
       } catch (cleanupError) {
-        failureMessage = `Upload failed (${toMessage(uploadError, 'unknown error')}). The draft message could not be removed (${toMessage(cleanupError, 'unknown error')}).`;
+        failureMessage = text('Upload failed ({value0}). The draft message could not be removed ({value1}).', {
+          value0: toMessage(uploadError, 'unknown error'),
+          value1: toMessage(cleanupError, 'unknown error'),
+        });
       }
       await refreshConversationQueries();
       setSubmitError(failureMessage);
@@ -121,7 +160,9 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
       await refreshConversationQueries();
     } catch (refreshError) {
       setSubmitError(
-        `Attachment uploaded, but the conversation could not refresh. ${toMessage(refreshError, 'Refresh the page to see it.')}`,
+        text('Attachment uploaded, but the conversation could not refresh. {value0}', {
+          value0: toMessage(refreshError, 'Refresh the page to see it.'),
+        }),
       );
     } finally {
       setUploading(false);
@@ -139,12 +180,12 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
     <div>
       {submitError && (
         <p className="mb-2 text-sm text-destructive" role="alert">
-          {submitError}
+          {text(submitError)}
         </p>
       )}
       {formState.errors.content?.message && (
         <p className="mb-2 text-xs text-destructive" id="message-content-error" role="alert">
-          {formState.errors.content.message}
+          {text(formState.errors.content.message)}
         </p>
       )}
       <form className="flex items-end gap-2" onSubmit={handleSubmit(submitMessage)}>
@@ -161,7 +202,7 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
           type="file"
         />
         <Button
-          aria-label="Attach a file"
+          aria-label={text('Attach a file')}
           disabled={disabled || uploading || sendMessage.isPending}
           onClick={() => fileInput.current?.click()}
           size="icon"
@@ -170,19 +211,53 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
         >
           <Paperclip aria-hidden="true" />
         </Button>
+        <Popover open={emojiOpen && !disabled && !uploading && !sendMessage.isPending} onOpenChange={setEmojiOpen}>
+          <PopoverTrigger
+            render={
+              <Button
+                aria-label={text('Add emoji')}
+                disabled={disabled || uploading || sendMessage.isPending}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <Smile aria-hidden="true" />
+              </Button>
+            }
+          />
+          <PopoverContent
+            finalFocus={inputRef}
+            align="start"
+            side="top"
+            className="w-[min(350px,calc(100vw-2rem))] gap-0 overflow-hidden rounded-2xl p-0"
+          >
+            <PopoverTitle className="sr-only">{text('Add emoji')}</PopoverTitle>
+            {emojiOpen && <ChatEmojiPicker onEmojiClick={insertEmoji} />}
+          </PopoverContent>
+        </Popover>
         <Input
-          aria-label="Write a message"
+          aria-label={text('Write a message')}
           aria-invalid={Boolean(formState.errors.content)}
           aria-describedby={formState.errors.content ? 'message-content-error' : undefined}
           autoComplete="off"
           className="h-11 rounded-2xl border border-border/70 bg-background shadow-sm"
-          disabled={disabled || uploading}
+          disabled={disabled || uploading || sendMessage.isPending}
           maxLength={10000}
-          placeholder={uploading ? 'Uploading attachment…' : 'Write a message…'}
-          {...register('content')}
+          placeholder={uploading ? text('Uploading attachment…') : text('Write a message…')}
+          {...contentRegistration}
+          ref={(node) => {
+            contentRegistration.ref(node);
+            inputRef.current = node;
+          }}
+          onSelect={(event) => {
+            selection.current = {
+              start: event.currentTarget.selectionStart ?? messageText.length,
+              end: event.currentTarget.selectionEnd ?? messageText.length,
+            };
+          }}
         />
         <Button
-          aria-label="Send message"
+          aria-label={text('Send message')}
           className="size-11 rounded-full bg-gradient-to-br from-[#087e64] to-[#12a178] text-white shadow-lg shadow-primary/20 hover:brightness-105"
           disabled={disabled || !messageText || sendMessage.isPending || uploading}
           size="icon"

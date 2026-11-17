@@ -1,6 +1,7 @@
 import { LockKeyhole, MessageCircle, ShieldCheck, Sparkles } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useUiText } from '@/i18n/ui-text';
 
 type AuthCardProps = {
   title: string;
@@ -10,6 +11,7 @@ type AuthCardProps = {
 };
 
 export function AuthCard({ title, description, children, footer }: AuthCardProps) {
+  const text = useUiText();
   return (
     <div className="grid w-full max-w-5xl overflow-hidden rounded-[2rem] border border-white/70 bg-white/80 shadow-[0_32px_100px_-44px_rgba(13,74,57,0.42)] backdrop-blur-xl md:min-h-[620px] md:grid-cols-[0.95fr_1.05fr] dark:border-white/10 dark:bg-card/90">
       <section
@@ -30,13 +32,14 @@ export function AuthCard({ title, description, children, footer }: AuthCardProps
 
         <div className="relative my-12">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium text-emerald-50">
-            <Sparkles aria-hidden="true" className="size-3.5" />A little more connected
+            <Sparkles aria-hidden="true" className="size-3.5" />
+            {text('A little more connected')}
           </div>
           <h2 className="max-w-sm text-4xl leading-[1.12] font-semibold tracking-tight lg:text-[2.75rem]">
-            Make room for the conversations that matter.
+            {text('Make room for the conversations that matter.')}
           </h2>
           <p className="mt-5 max-w-sm text-sm leading-6 text-emerald-50/80">
-            Your people, your groups, and all the little moments in one thoughtful space.
+            {text('Your people, your groups, and all the little moments in one thoughtful space.')}
           </p>
 
           <div className="mt-10 max-w-sm rounded-3xl border border-white/20 bg-white/10 p-4 shadow-2xl shadow-[#003a31]/20 backdrop-blur-md">
@@ -46,22 +49,23 @@ export function AuthCard({ title, description, children, footer }: AuthCardProps
               </span>
               <div>
                 <p className="text-sm font-medium">Jamie Parker</p>
-                <p className="text-xs text-emerald-50/70">online now</p>
+                <p className="text-xs text-emerald-50/70">{text('online now')}</p>
               </div>
               <span className="ml-auto size-2 rounded-full bg-[#8bf0bb] ring-4 ring-[#8bf0bb]/15" />
             </div>
             <p className="w-fit max-w-[90%] rounded-2xl rounded-tl-sm bg-white/15 px-3.5 py-2.5 text-sm text-white/95">
-              Are we still on for coffee this afternoon?
+              {text('Are we still on for coffee this afternoon?')}
             </p>
             <p className="mt-2 ml-auto w-fit rounded-2xl rounded-tr-sm bg-[#b7f4d2] px-3.5 py-2.5 text-sm text-[#104b3d]">
-              Wouldn’t miss it ☕
+              {text('Wouldn’t miss it ☕')}
             </p>
-            <p className="mt-2 text-right text-[11px] text-emerald-50/70">Read · 10:42</p>
+            <p className="mt-2 text-right text-[11px] text-emerald-50/70">{text('Read · 10:42')}</p>
           </div>
         </div>
 
         <div className="relative flex items-center gap-2 text-xs text-emerald-50/80">
-          <ShieldCheck aria-hidden="true" className="size-4" />A private space for your everyday conversations
+          <ShieldCheck aria-hidden="true" className="size-4" />
+          {text('A private space for your everyday conversations')}
         </div>
       </section>
 
@@ -71,8 +75,8 @@ export function AuthCard({ title, description, children, footer }: AuthCardProps
             <MessageCircle aria-hidden="true" className="size-4" />
             Convo
           </div>
-          <CardTitle className="text-3xl font-semibold tracking-tight">{title}</CardTitle>
-          <CardDescription className="max-w-sm text-sm leading-6">{description}</CardDescription>
+          <CardTitle className="text-3xl font-semibold tracking-tight">{text(title)}</CardTitle>
+          <CardDescription className="max-w-sm text-sm leading-6">{text(description)}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5 px-6 sm:px-10 lg:px-12">
           {children}
@@ -81,7 +85,7 @@ export function AuthCard({ title, description, children, footer }: AuthCardProps
           )}
           <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
             <LockKeyhole aria-hidden="true" className="size-3" />
-            Your account details stay private
+            {text('Your account details stay private')}
           </div>
         </CardContent>
       </Card>
@@ -110,11 +114,12 @@ export function AuthSuccess({ children }: { children: React.ReactNode }) {
 }
 
 export function AuthFieldError({ id, message }: { id: string; message?: string }) {
+  const text = useUiText();
   if (!message) return null;
 
   return (
     <p className="text-xs font-medium text-destructive" id={`${id}-error`}>
-      {message}
+      {text(message)}
     </p>
   );
 }

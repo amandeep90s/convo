@@ -1,26 +1,28 @@
 'use client';
 
-import type { TMessageReceipt } from '@repo/shared';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import type { ChatParticipant, TMessageReceipt } from '@repo/shared';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowLeft, Check, CheckCheck } from 'lucide-react';
 import Link from 'next/link';
+import { useLocale } from 'next-intl';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import { MemberManager } from '@/components/app/member-manager';
 import { MessageComposer } from '@/components/app/message-composer';
+import { PresenceStatus } from '@/components/app/presence-status';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useUiText } from '@/i18n/ui-text';
 import { apiRequest } from '@/lib/client/api';
 import { useCurrentUser } from '@/lib/client/use-current-user';
 
-type Person = { id: string; name: string; username: string; avatar_url: string | null };
 type Conversation = {
   id: string;
   name: string | null;
   type: string;
   group: { name: string; description: string | null } | null;
-  members: Array<{ user_id: string; role: string; user: Person }>;
+  members: Array<{ user_id: string; role: string; user: ChatParticipant }>;
 };
 type Message = {
   id: string;
@@ -28,13 +30,16 @@ type Message = {
   type: string;
   content: string | null;
   created_at: string;
-  sender: Person;
+  sender: Omit<ChatParticipant, 'presence'>;
   attachments: Array<{ id: string; file_name: string | null; mime_type: string }>;
   receipts: TMessageReceipt[];
 };
 type MessagePage = { items: Message[]; nextCursor: string | null; hasMore: boolean };
 
 export function ConversationView({ conversationId }: { conversationId: string }) {
+  const text = useUiText();
+  const locale = useLocale();
+  const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
   const [isVisible, setIsVisible] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
@@ -52,6 +57,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
     queryKey: ['conversation', conversationId],
     queryFn: () => apiRequest<Conversation>(`conversations/${conversationId}`),
     retry: false,
+    refetchInterval: 30000,
   });
   const messages = useInfiniteQuery({
     queryKey: ['messages', conversationId],
@@ -81,17 +87,26 @@ export function ConversationView({ conversationId }: { conversationId: string })
     });
     for (const message of unread) acknowledged.current.add(`${currentUser.id}:${message.id}`);
     receiptQueue.current = receiptQueue.current.then(async () => {
+      let updated = false;
       for (const message of unread) {
         try {
           await apiRequest(`message-receipts/${message.id}/read`, { method: 'PATCH' });
+          updated = true;
           setReceiptError(null);
         } catch (reason) {
           acknowledged.current.delete(`${currentUser.id}:${message.id}`);
-          setReceiptError(reason instanceof Error ? reason.message : 'Could not mark messages as read.');
+          setReceiptError(reason instanceof Error ? reason.message : text('Could not mark messages as read.'));
+        }
+      }
+      if (updated) {
+        try {
+          await queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        } catch (reason) {
+          setReceiptError(reason instanceof Error ? reason.message : text('Could not mark messages as read.'));
         }
       }
     });
-  }, [currentUser, isVisible, orderedMessages]);
+  }, [currentUser, isVisible, orderedMessages, text, queryClient]);
   const otherMember = currentUser
     ? conversation.data?.members.find(({ user_id }) => user_id !== currentUser.id)?.user
     : undefined;
@@ -99,13 +114,13 @@ export function ConversationView({ conversationId }: { conversationId: string })
     conversation.data?.group?.name ||
     conversation.data?.name ||
     otherMember?.name ||
-    (conversation.data?.type === 'private' ? 'Direct message' : 'Conversation');
+    (conversation.data?.type === 'private' ? text('Direct message') : text('Conversation'));
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background">
       <header className="flex items-center gap-3 border-b bg-muted/50 px-4 py-3 md:px-6">
         <Button
-          aria-label="Back to conversations"
+          aria-label={text('Back to conversations')}
           className="md:hidden"
           nativeButton={false}
           render={<Link href="/chat" />}
@@ -123,14 +138,25 @@ export function ConversationView({ conversationId }: { conversationId: string })
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-semibold">{conversation.isPending ? 'Loading conversation…' : title}</h1>
-          <p className="truncate text-xs text-muted-foreground">
-            {otherMember
-              ? `@${otherMember.username}`
-              : conversation.data
-                ? `${conversation.data.members.length} members`
-                : ''}
-          </p>
+          <h1 className="truncate font-semibold">{conversation.isPending ? text('Loading conversation…') : title}</h1>
+          {conversation.data?.type === 'private' ? (
+            <div className="flex items-center gap-2">
+              <PresenceStatus presence={otherMember?.presence ?? null} />
+              <span className="truncate text-xs text-muted-foreground">
+                {otherMember ? `@${otherMember.username}` : ''}
+              </span>
+            </div>
+          ) : (
+            <p className="truncate text-xs text-muted-foreground">
+              {conversation.data ? (
+                <>
+                  {conversation.data.members.length} {text('members')}
+                </>
+              ) : (
+                ''
+              )}
+            </p>
+          )}
         </div>
       </header>
       {conversation.data && conversation.data.type !== 'private' && (
@@ -140,14 +166,18 @@ export function ConversationView({ conversationId }: { conversationId: string })
       )}
 
       <section
-        aria-label="Messages"
+        aria-label={text('Messages')}
         aria-live="polite"
         className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#efeae2] px-4 py-5 md:px-10 dark:bg-[#0b141a]"
       >
-        {messages.isPending && <Status>Loading messages…</Status>}
-        {messages.isError && <Status role="alert">Could not load messages. {messages.error.message}</Status>}
+        {messages.isPending && <Status>{text('Loading messages…')}</Status>}
+        {messages.isError && (
+          <Status role="alert">
+            {text('Could not load messages.')} {text(messages.error.message)}
+          </Status>
+        )}
         {messages.isSuccess && orderedMessages.length === 0 && (
-          <Status>No messages yet. Send the first message.</Status>
+          <Status>{text('No messages yet. Send the first message.')}</Status>
         )}
         {messages.isSuccess && orderedMessages.length > 0 && (
           <div className="mt-auto flex flex-col gap-3">
@@ -160,7 +190,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
                 variant="outline"
               >
                 <ArrowDown aria-hidden="true" />
-                {messages.isFetchingNextPage ? 'Loading…' : 'Load earlier messages'}
+                {messages.isFetchingNextPage ? text('Loading…') : text('Load earlier messages')}
               </Button>
             )}
             {orderedMessages.map((message) => {
@@ -176,7 +206,8 @@ export function ConversationView({ conversationId }: { conversationId: string })
                   >
                     {!isOwn && <p className="mb-1 text-xs font-medium">{message.sender.name}</p>}
                     <p className="text-sm break-words whitespace-pre-wrap">
-                      {message.content || (message.attachments.length ? 'Shared attachment' : 'Shared content')}
+                      {message.content ||
+                        (message.attachments.length ? text('Shared attachment') : text('Shared content'))}
                     </p>
                     {message.attachments.length > 0 && (
                       <ul className="mt-2 flex flex-col gap-1">
@@ -188,7 +219,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
                               rel="noreferrer"
                               target="_blank"
                             >
-                              {attachment.file_name || 'Download attachment'}
+                              {attachment.file_name || text('Download attachment')}
                             </a>
                           </li>
                         ))}
@@ -196,12 +227,12 @@ export function ConversationView({ conversationId }: { conversationId: string })
                     )}
                     <span className="mt-1 flex items-center justify-end gap-1 text-[11px]">
                       <time className="opacity-70" dateTime={message.created_at}>
-                        {formatTime(message.created_at)}
+                        {formatTime(message.created_at, locale)}
                       </time>
                       {isOwn && (
                         <span
-                          aria-label={isRead ? 'Read' : isDelivered ? 'Delivered' : 'Sent'}
-                          title={isRead ? 'Read' : isDelivered ? 'Delivered' : 'Sent'}
+                          aria-label={isRead ? text('Read') : isDelivered ? text('Delivered') : text('Sent')}
+                          title={isRead ? text('Read') : isDelivered ? text('Delivered') : text('Sent')}
                         >
                           {isRead || isDelivered ? (
                             <CheckCheck
@@ -224,16 +255,21 @@ export function ConversationView({ conversationId }: { conversationId: string })
 
       {conversation.isError && (
         <p className="border-t px-4 py-3 text-sm text-destructive" role="alert">
-          Could not load this conversation. {conversation.error.message}
+          {text('Could not load this conversation.')}
+          {text(conversation.error.message)}
         </p>
       )}
       {receiptError && (
         <p className="border-t px-4 py-2 text-xs text-destructive" role="alert">
-          {receiptError}
+          {text(receiptError)}
         </p>
       )}
       <footer className="border-t bg-muted/50 p-3 md:px-6">
-        <MessageComposer conversationId={conversationId} disabled={conversation.isError || conversation.isPending} />
+        <MessageComposer
+          key={conversationId}
+          conversationId={conversationId}
+          disabled={conversation.isError || conversation.isPending}
+        />
       </footer>
     </div>
   );
@@ -247,7 +283,7 @@ function Status({ children, role }: { children: ReactNode; role?: 'alert' }) {
   );
 }
 
-function formatTime(value: string): string {
+function formatTime(value: string, locale: string): string {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
 }

@@ -16,12 +16,15 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
-export const requestLoginOtpSchema = z.object({
+export const requestLoginOtpSchema = loginSchema;
+
+export const loginChallengeSchema = z.object({
+  challengeToken: z.string().min(1),
   email: emailSchema,
 });
 
 export const verifyLoginOtpSchema = z.object({
-  email: emailSchema,
+  challengeToken: z.string().min(1),
   code: z.string().regex(/^\d{6}$/, 'Code must contain exactly 6 digits'),
 });
 
@@ -81,6 +84,7 @@ export const resetPasswordSchema = z.object({
 
 // Types
 export type LoginDto = z.infer<typeof loginSchema>;
+export type LoginChallenge = z.infer<typeof loginChallengeSchema>;
 export type RequestLoginOtpDto = z.infer<typeof requestLoginOtpSchema>;
 export type VerifyLoginOtpDto = z.infer<typeof verifyLoginOtpSchema>;
 export type RegisterDto = z.infer<typeof registerSchema>;

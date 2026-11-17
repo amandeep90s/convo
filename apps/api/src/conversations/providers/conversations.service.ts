@@ -1,14 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@repo/db';
 import type { UpdateConversationDto } from '@repo/shared';
 
 import { ConversationAccessService } from '@/common/providers/conversation-access.service';
 import { PrismaService } from '@/prisma.service';
+import { RealtimeGateway } from '@/realtime/realtime.gateway';
 
 @Injectable()
 export class ConversationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly access: ConversationAccessService,
+    private readonly realtime: RealtimeGateway,
   ) {}
 
   async list(
@@ -72,12 +75,66 @@ export class ConversationsService {
       }),
       this.prisma.conversation.count({ where }),
     ]);
-    return { data, page, limit, total, totalPages: Math.ceil(total / limit) };
+    const conversationIds = data.map(({ id }) => id);
+    const [presence, unread] = await Promise.all([
+      this.realtime.presenceFor(
+        userId,
+        data
+          .filter(({ type }) => type === 'private')
+          .flatMap(({ members }) =>
+            members
+              .filter((member) => member.user_id !== userId)
+              .map((member) => member.user_id),
+          ),
+      ),
+      conversationIds.length
+        ? this.prisma.$queryRaw<
+            Array<{ conversation_id: string; unread_count: bigint }>
+          >(Prisma.sql`
+        SELECT message.conversation_id, COUNT(*) AS unread_count
+        FROM messages AS message
+        JOIN conversation_members AS member
+          ON member.conversation_id = message.conversation_id AND member.user_id = ${userId}::uuid
+        LEFT JOIN messages AS read_cursor ON read_cursor.id = member.last_read_message_id
+        WHERE message.conversation_id IN (${Prisma.join(conversationIds.map((id) => Prisma.sql`${id}::uuid`))})
+          AND member.left_at IS NULL
+          AND message.sender_id <> ${userId}::uuid
+          AND message.deleted_at IS NULL
+          AND (message.expires_at IS NULL OR message.expires_at > NOW())
+          AND message.created_at >= member.joined_at
+          AND (read_cursor.id IS NULL OR (message.created_at, message.id) > (read_cursor.created_at, read_cursor.id))
+        GROUP BY message.conversation_id
+      `)
+        : Promise.resolve([]),
+    ]);
+    const unreadCounts = new Map(
+      unread.map((entry): [string, number] => [
+        entry.conversation_id,
+        Number(entry.unread_count),
+      ]),
+    );
+    return {
+      data: data.map((conversation) => ({
+        ...conversation,
+        unread_count: unreadCounts.get(conversation.id) ?? 0,
+        members: conversation.members.map((member) => ({
+          ...member,
+          user: {
+            ...member.user,
+            presence: presence.get(member.user_id) ?? null,
+          },
+        })),
+      })),
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async get(userId: string, conversationId: string) {
     await this.access.requireMember(conversationId, userId);
-    return this.prisma.conversation.findFirstOrThrow({
+    const conversation = await this.prisma.conversation.findFirstOrThrow({
       where: { id: conversationId, deleted_at: null },
       include: {
         group: true,
@@ -97,6 +154,24 @@ export class ConversationsService {
         },
       },
     });
+    const presence = await this.realtime.presenceFor(
+      userId,
+      conversation.type === 'private'
+        ? conversation.members
+            .filter((member) => member.user_id !== userId)
+            .map((member) => member.user_id)
+        : [],
+    );
+    return {
+      ...conversation,
+      members: conversation.members.map((member) => ({
+        ...member,
+        user: {
+          ...member.user,
+          presence: presence.get(member.user_id) ?? null,
+        },
+      })),
+    };
   }
 
   async update(

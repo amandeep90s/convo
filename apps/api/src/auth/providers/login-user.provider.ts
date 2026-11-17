@@ -2,8 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { EUserStatus } from '@repo/db';
 import type { LoginDto } from '@repo/shared';
 
-import type { AuthRequestContext } from '@/auth/providers/session.provider';
-import { SessionProvider } from '@/auth/providers/session.provider';
+import { LoginOtpProvider } from '@/auth/providers/login-otp.provider';
 import { FindOneUserByIdentifierProvider } from '@/users/providers/find-one-user-by-identifier.provider';
 
 import { HashingProvider } from './hashing.provider';
@@ -16,7 +15,7 @@ export class LoginUserProvider {
      */
     private readonly findOneUserByIdentifier: FindOneUserByIdentifierProvider,
 
-    private readonly sessionProvider: SessionProvider,
+    private readonly loginOtpProvider: LoginOtpProvider,
 
     /**
      * Injecting HashingProvider to handle password and token hashing
@@ -24,7 +23,7 @@ export class LoginUserProvider {
     private readonly hashingProvider: HashingProvider,
   ) {}
 
-  async login(body: LoginDto, context: AuthRequestContext) {
+  async login(body: LoginDto) {
     const user = await this.findOneUserByIdentifier.findByIdentifier(
       body.identifier,
     );
@@ -50,6 +49,6 @@ export class LoginUserProvider {
       throw new UnauthorizedException(`Your account is ${user.status}`);
     }
 
-    return this.sessionProvider.create(user, context);
+    return this.loginOtpProvider.request(user.email);
   }
 }

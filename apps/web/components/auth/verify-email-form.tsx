@@ -16,8 +16,10 @@ import { AuthCard, AuthError, AuthFieldError, AuthSuccess } from '@/components/a
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useUiText } from '@/i18n/ui-text';
 
 export function VerifyEmailForm({ initialToken = '' }: { initialToken?: string }) {
+  const text = useUiText();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,11 +33,15 @@ export function VerifyEmailForm({ initialToken = '' }: { initialToken?: string }
   });
 
   async function verify(data: VerifyEmailDto) {
-    await post('/api/auth/verify-email', data, 'Email verified. You can now sign in.');
+    await post('/api/auth/verify-email', data, text('Email verified. You can now sign in.'));
   }
 
   async function resend(data: ResendVerificationDto) {
-    await post('/api/auth/resend-verification', data, 'If the account exists, a verification email has been sent.');
+    await post(
+      '/api/auth/resend-verification',
+      data,
+      text('If the account exists, a verification email has been sent.'),
+    );
   }
 
   async function post(endpoint: string, body: VerifyEmailDto | ResendVerificationDto, successMessage: string) {
@@ -50,12 +56,12 @@ export function VerifyEmailForm({ initialToken = '' }: { initialToken?: string }
       });
       const payload = (await response.json()) as { success?: boolean; message?: string };
       if (!response.ok || !payload.success) {
-        setError(payload.message ?? 'The request could not be completed.');
+        setError(payload.message ?? text('The request could not be completed.'));
         return;
       }
       setMessage(payload.message ?? successMessage);
     } catch {
-      setError('Could not reach the authentication service. Please try again.');
+      setError(text('Could not reach the authentication service. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -63,17 +69,17 @@ export function VerifyEmailForm({ initialToken = '' }: { initialToken?: string }
 
   return (
     <AuthCard
-      title="Verify your email"
-      description="Verify your email address to activate your account."
+      title={text('Verify your email')}
+      description={text('Verify your email address to activate your account.')}
       footer={
         <Link className="font-medium text-foreground underline underline-offset-4" href="/login">
-          Return to sign in
+          {text('Return to sign in')}
         </Link>
       }
     >
       <form className="flex flex-col gap-4" onSubmit={verifyForm.handleSubmit(verify)}>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="token">Verification token</Label>
+          <Label htmlFor="token">{text('Verification token')}</Label>
           <Input
             autoComplete="one-time-code"
             id="token"
@@ -84,21 +90,21 @@ export function VerifyEmailForm({ initialToken = '' }: { initialToken?: string }
           />
           <AuthFieldError id="token" message={verifyForm.formState.errors.token?.message} />
         </div>
-        {error && <AuthError>{error}</AuthError>}
+        {error && <AuthError>{text(error)}</AuthError>}
         {message && <AuthSuccess>{message}</AuthSuccess>}
         <Button
           className="h-11 rounded-xl bg-gradient-to-r from-[#087e64] to-[#12a178] font-semibold shadow-lg shadow-primary/20 hover:brightness-105"
           disabled={isSubmitting}
           type="submit"
         >
-          {isSubmitting ? 'Verifying…' : 'Verify email'}
+          {isSubmitting ? text('Verifying…') : text('Verify email')}
         </Button>
       </form>
       <div className="border-t pt-4">
-        <p className="mb-3 text-sm font-medium">Need another verification email?</p>
+        <p className="mb-3 text-sm font-medium">{text('Need another verification email?')}</p>
         <form className="flex flex-col gap-3" onSubmit={resendForm.handleSubmit(resend)}>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="verification-email">Email address</Label>
+            <Label htmlFor="verification-email">{text('Email address')}</Label>
             <Input
               autoComplete="email"
               id="verification-email"
@@ -111,7 +117,7 @@ export function VerifyEmailForm({ initialToken = '' }: { initialToken?: string }
             <AuthFieldError id="verification-email" message={resendForm.formState.errors.email?.message} />
           </div>
           <Button className="h-10 rounded-xl" disabled={isSubmitting} type="submit" variant="outline">
-            Resend instructions
+            {text('Resend instructions')}
           </Button>
         </form>
       </div>

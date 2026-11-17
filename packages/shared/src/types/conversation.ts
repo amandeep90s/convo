@@ -1,5 +1,24 @@
 import type { DatabaseDate } from './prisma-common.js';
 import type { EConversationType } from '@repo/db';
+import type { TUser } from './user.js';
+import type { TMessage } from './message.js';
+
+export type UserPresence = 'online' | 'offline' | null;
+export type ChatParticipant = Pick<TUser, 'id' | 'name' | 'username' | 'avatar_url'> & {
+  presence: UserPresence;
+};
+
+export type ConversationListItem = Pick<TConversation, 'id' | 'name' | 'type'> & {
+  last_message_at: string | null;
+  unread_count: number;
+  members: Array<{
+    user_id: string;
+    archived_at: string | null;
+    starred_at: string | null;
+    user: ChatParticipant;
+  }>;
+  messages: Array<Pick<TMessage, 'id' | 'type' | 'content'> & { created_at: string }>;
+};
 
 export type TConversation = {
   id: string;

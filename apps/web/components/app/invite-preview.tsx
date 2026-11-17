@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useUiText } from '@/i18n/ui-text';
 import { ApiError, apiRequest } from '@/lib/client/api';
 
 type InvitePreview = {
@@ -16,6 +17,7 @@ type InvitePreview = {
 };
 
 export function InvitePreview({ code }: { code: string }) {
+  const text = useUiText();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export function InvitePreview({ code }: { code: string }) {
       ]);
       router.replace(`/chat/${result.conversation_id}`);
     } catch (reason) {
-      setJoinError(reason instanceof ApiError ? reason.message : 'Could not join this conversation.');
+      setJoinError(reason instanceof ApiError ? reason.message : text('Could not join this conversation.'));
       setIsJoining(false);
     }
   }
@@ -48,24 +50,27 @@ export function InvitePreview({ code }: { code: string }) {
     <div className="mx-auto w-full max-w-xl">
       <Card>
         <CardHeader>
-          <CardTitle>Conversation invitation</CardTitle>
-          <p className="text-sm text-muted-foreground">Review the invitation before joining.</p>
+          <CardTitle>{text('Conversation invitation')}</CardTitle>
+          <p className="text-sm text-muted-foreground">{text('Review the invitation before joining.')}</p>
         </CardHeader>
         <CardContent>
-          {invite.isPending && <p className="text-sm text-muted-foreground">Checking invite…</p>}
+          {invite.isPending && <p className="text-sm text-muted-foreground">{text('Checking invite…')}</p>}
           {invite.isError && (
             <p className="text-sm text-destructive" role="alert">
-              This invite is invalid or expired. {invite.error.message}
+              {text('This invite is invalid or expired.')}
+              {text(invite.error.message)}
             </p>
           )}
           {invite.data && (
             <div className="flex flex-col gap-4">
               <div>
-                <h1 className="text-xl font-semibold">{invite.data.group.name ?? 'Community'}</h1>
+                <h1 className="text-xl font-semibold">{invite.data.group.name ?? text('Community')}</h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {invite.data.group.description || 'No description available.'}
+                  {invite.data.group.description || text('No description available.')}
                 </p>
-                <p className="mt-3 text-xs text-muted-foreground">{invite.data.group.member_count} members</p>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  {invite.data.group.member_count} {text('members')}
+                </p>
               </div>
               {joinError && (
                 <p className="text-sm text-destructive" role="alert">
@@ -73,7 +78,7 @@ export function InvitePreview({ code }: { code: string }) {
                 </p>
               )}
               <Button disabled={isJoining} onClick={() => void join()} type="button">
-                {isJoining ? 'Joining…' : 'Join conversation'}
+                {isJoining ? text('Joining…') : text('Join conversation')}
               </Button>
             </div>
           )}

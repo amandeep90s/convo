@@ -11,17 +11,19 @@ Interactive Swagger documentation is available at `/api/v1/docs`. Request bodies
 | POST | `/auth/register` | Public | Register and queue an email verification message |
 | POST | `/auth/verify-email` | Public | Verify an email token |
 | POST | `/auth/resend-verification` | Public | Resend verification instructions |
-| POST | `/auth/login` | Public | Check credentials and create a device/session |
-| POST | `/auth/login/otp/request` | Public | Request an email login code without disclosing account existence |
-| POST | `/auth/login/otp/verify` | Public | Verify an email login code and create a device/session |
+| POST | `/auth/login` | Public | Validate credentials and send an email login code |
+| POST | `/auth/login/otp/request` | Public | Credential-validated alias for requesting a login code |
+| POST | `/auth/login/otp/verify` | Public | Verify the credential-bound challenge and code, then create a device/session |
 | POST | `/auth/refresh` | Public | Rotate a refresh token and issue a new access token |
 | POST | `/auth/logout` | Authenticated | Revoke the current session |
 | POST | `/auth/forgot-password` | Public | Queue password reset instructions without disclosing account existence |
 | POST | `/auth/reset-password` | Public | Change the password with a single-use token and revoke sessions |
 
-Login returns an `accessToken`, `refreshToken`, `expiresAt`, and user summary. Refresh tokens are stored as hashes and rotated on use.
+Login is a two-step flow. Submit `{ "identifier": "user@example.com", "password": "..." }` (a username also works) to `/auth/login`. Only verified, active accounts with valid credentials receive a code. This stage returns `{ "challengeToken": "...", "email": "user@example.com" }` and does not create a session or set auth cookies.
 
-Request a login code with `{ "email": "user@example.com" }`. Verified, active accounts receive a six-digit code by email; it expires after 10 minutes, can be used once, and allows at most five failed attempts. The request response is the same whether or not an eligible account exists. Verify with `{ "email": "user@example.com", "code": "123456" }`; success returns the normal login session. Both OTP endpoints are rate-limited.
+Submit `{ "challengeToken": "...", "code": "123456" }` to `/auth/login/otp/verify`. The signed challenge is bound to the account and issued code; email-only requests and verification without a challenge are rejected. Codes expire after 10 minutes, are single-use, and allow at most five failed attempts. Credential submissions within 60 seconds reuse the current code. Both credential routes and code verification are rate-limited.
+
+Successful verification returns an `accessToken`, `refreshToken`, `expiresAt`, and user summary. The web proxy stores tokens in HTTP-only cookies only after verification. Refresh tokens are hashed and rotated on use. Set `JWT_ACCESS_TOKEN_TTL=1h` as shown in `.env.example` and restart the API to use one-hour access tokens; automatic refresh remains enabled with the unchanged seven-day refresh-token lifetime.
 
 ## Profiles, contacts, and settings
 
@@ -60,6 +62,8 @@ Request a login code with `{ "email": "user@example.com" }`. Verified, active ac
 Group/community creation makes the creator an admin. Membership and admin checks are enforced at the API boundary.
 
 ## Messages and conversation features
+
+Conversation lists include `unread_count` per membership, excluding own, deleted, expired, pre-membership, and already-read messages. Counts use `last_read_message_id`, independent of read-receipt sharing. List and detail member users include `presence: "online" | "offline" | null` for private-chat peers. `null` means privacy-hidden or unavailable, not offline. Presence honors the subject's `online_visibility`, their contacts, and blocks in either direction, and requires a connected socket with a valid user/device session.
 
 | Method | Route | Purpose |
 | --- | --- | --- |
@@ -104,6 +108,8 @@ Client events:
 - `call:signal` with `{ "callId": "...", "targetUserId": "...", "type": "offer|answer|ice-candidate", "payload": ... }`
 
 Server events include `conversation:updated`, `message:created`, `message:updated`, `message:deleted`, `message:attachment`, `message:reaction`, `message:receipt`, `call:incoming`, `call:updated`, and relayed `call:signal`. Conversation-scoped events include `conversation_id`.
+
+The payload-less `presence:updated` event invalidates list/detail presence snapshots when a peer connects or disconnects. It is sent only to privacy-authorized private-chat peers. Snapshots check all connected sessions across the Redis adapter, so closing one tab does not mark a user offline while another remains connected. Clients also poll to recover from missed events, privacy changes, and session expiry.
 
 `message:notification` is sent separately to recipients with account notifications enabled, no active mute, and conversation policy `all`. `none` and `mentions_only` suppress generic alerts; mention detection is not implemented. Notification preferences never suppress message delivery. The web app shows in-app alerts outside the visible conversation and browser alerts for hidden tabs after the user grants permission in notification settings. Closed-browser/offline Web Push delivery is not implemented.
 

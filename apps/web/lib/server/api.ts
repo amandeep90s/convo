@@ -53,7 +53,8 @@ export async function refreshAuthSession(refreshToken: string): Promise<AuthSess
     body: JSON.stringify({ refreshToken }),
     cache: 'no-store',
   });
-  if (!response.ok) return null;
+  if (response.status === 401 || response.status === 403) return null;
+  if (!response.ok) throw new Error('The authentication service is unavailable');
   const payload = await readApiPayload(response);
   return getAuthSession(payload);
 }

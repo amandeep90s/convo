@@ -1,34 +1,25 @@
 'use client';
 
+import type { ConversationListItem } from '@repo/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, ArchiveRestore, MessageCircle, Search, Star, StarOff } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useLocale } from 'next-intl';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import { GroupCreator } from '@/components/app/group-creator';
+import { PresenceStatus } from '@/components/app/presence-status';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useUiText } from '@/i18n/ui-text';
 import { ApiError, apiRequest } from '@/lib/client/api';
 import { useCurrentUser } from '@/lib/client/use-current-user';
 
 type ConversationMode = 'recent' | 'archived' | 'starred';
-type ConversationListResponse = { data: Conversation[]; total: number };
-type Conversation = {
-  id: string;
-  name: string | null;
-  type: string;
-  last_message_at: string | null;
-  members: Array<{
-    user_id: string;
-    archived_at: string | null;
-    starred_at: string | null;
-    user: { id: string; name: string; username: string; avatar_url: string | null };
-  }>;
-  messages: Array<{ id: string; type: string; content: string | null; created_at: string }>;
-};
+type ConversationListResponse = { data: ConversationListItem[]; total: number };
 
 const viewCopy: Record<ConversationMode, { title: string; description: string; empty: string }> = {
   recent: {
@@ -49,6 +40,8 @@ const viewCopy: Record<ConversationMode, { title: string; description: string; e
 };
 
 export function ConversationList({ mode }: { mode: ConversationMode }) {
+  const text = useUiText();
+  const locale = useLocale();
   const { data: user } = useCurrentUser();
   const queryClient = useQueryClient();
   const [actionId, setActionId] = useState<string | null>(null);
@@ -86,7 +79,7 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
       await apiRequest(`conversations/${id}/${resource}`, { method });
       await queryClient.invalidateQueries({ queryKey: ['conversations'] });
     } catch (requestError) {
-      setError(requestError instanceof ApiError ? requestError.message : 'Could not update this conversation.');
+      setError(requestError instanceof ApiError ? requestError.message : text('Could not update this conversation.'));
     } finally {
       setActionId(null);
     }
@@ -96,13 +89,15 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
     <div className={`mx-auto flex min-h-0 w-full flex-col ${mode === 'recent' ? 'h-full' : 'max-w-5xl'}`}>
       <header className="flex flex-wrap items-center justify-between gap-4 px-5 pt-6 pb-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{mode === 'recent' ? 'Chats' : copy.title}</h1>
-          {mode !== 'recent' && <p className="mt-2 text-sm text-muted-foreground">{copy.description}</p>}
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {mode === 'recent' ? text('Chats') : text(copy.title)}
+          </h1>
+          {mode !== 'recent' && <p className="mt-2 text-sm text-muted-foreground">{text(copy.description)}</p>}
         </div>
         {mode === 'recent' && (
           <div className="flex flex-wrap gap-2">
             <Button
-              aria-label="New conversation"
+              aria-label={text('New conversation')}
               nativeButton={false}
               render={<Link href="/contacts" />}
               size="icon"
@@ -120,10 +115,10 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
           className="pointer-events-none absolute top-2.5 left-8 size-4 text-muted-foreground"
         />
         <Input
-          aria-label="Search conversations"
+          aria-label={text('Search conversations')}
           className="border-0 bg-muted pl-9 shadow-none"
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search conversations"
+          placeholder={text('Search conversations')}
           value={search}
         />
       </div>
@@ -133,15 +128,19 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
           className="mx-5 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
           role="alert"
         >
-          {error}
+          {text(error)}
         </p>
       )}
-      {query.isPending && <ListMessage>Loading conversations…</ListMessage>}
-      {query.isError && <ListMessage role="alert">Could not load conversations. {query.error.message}</ListMessage>}
-      {query.isSuccess && query.data.data.length === 0 && <ListMessage>{copy.empty}</ListMessage>}
+      {query.isPending && <ListMessage>{text('Loading conversations…')}</ListMessage>}
+      {query.isError && (
+        <ListMessage role="alert">
+          {text('Could not load conversations.')} {text(query.error.message)}
+        </ListMessage>
+      )}
+      {query.isSuccess && query.data.data.length === 0 && <ListMessage>{text(copy.empty)}</ListMessage>}
 
       {query.isSuccess && query.data.data.length > 0 && (
-        <section aria-label={copy.title} className="min-h-0 overflow-y-auto">
+        <section aria-label={text(copy.title)} className="min-h-0 overflow-y-auto">
           {filteredConversations.map((conversation) => {
             const ownMembership = conversation.members.find((member) => member.user_id === user?.id);
             const participant = user
@@ -150,7 +149,7 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
             const title =
               conversation.name ||
               participant?.name ||
-              (conversation.type === 'private' ? 'Direct message' : 'Group conversation');
+              (conversation.type === 'private' ? text('Direct message') : text('Group conversation'));
             const message = conversation.messages[0];
             const starred = Boolean(ownMembership?.starred_at);
             const archived = Boolean(ownMembership?.archived_at);
@@ -176,18 +175,31 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
                       <span className="truncate font-medium">{title}</span>
                       {message && (
                         <time className="shrink-0 text-xs text-muted-foreground" dateTime={message.created_at}>
-                          {formatDate(message.created_at)}
+                          {formatDate(message.created_at, locale)}
                         </time>
                       )}
                     </span>
-                    <span className="mt-1 block truncate text-sm text-muted-foreground">
-                      {message?.content || (message ? 'Attachment or shared content' : 'No messages yet')}
+                    {conversation.type === 'private' && <PresenceStatus presence={participant?.presence ?? null} />}
+                    <span className="mt-1 flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                      <span className="truncate">
+                        {message?.content || (message ? text('Attachment or shared content') : text('No messages yet'))}
+                      </span>
+                      {conversation.unread_count > 0 && (
+                        <span
+                          aria-label={text('{count, plural, one {# unread message} other {# unread messages}}', {
+                            count: conversation.unread_count,
+                          })}
+                          className="min-w-5 shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-center text-xs font-semibold text-primary-foreground"
+                        >
+                          {new Intl.NumberFormat(locale).format(conversation.unread_count)}
+                        </span>
+                      )}
                     </span>
                   </span>
                 </Link>
                 <div className="flex shrink-0 items-center">
                   <Button
-                    aria-label={starred ? 'Unstar conversation' : 'Star conversation'}
+                    aria-label={starred ? text('Unstar conversation') : text('Star conversation')}
                     disabled={actionId === conversation.id}
                     onClick={() => void updateConversation(conversation.id, starred ? 'unstar' : 'star')}
                     size="icon-sm"
@@ -197,7 +209,7 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
                     {starred ? <StarOff aria-hidden="true" /> : <Star aria-hidden="true" />}
                   </Button>
                   <Button
-                    aria-label={archived ? 'Restore conversation' : 'Archive conversation'}
+                    aria-label={archived ? text('Restore conversation') : text('Archive conversation')}
                     disabled={actionId === conversation.id}
                     onClick={() => void updateConversation(conversation.id, archived ? 'restore' : 'archive')}
                     size="icon-sm"
@@ -210,7 +222,9 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
               </div>
             );
           })}
-          {filteredConversations.length === 0 && <ListMessage>No conversations match your search.</ListMessage>}
+          {filteredConversations.length === 0 && (
+            <ListMessage>{text('No conversations match your search.')}</ListMessage>
+          )}
         </section>
       )}
     </div>
@@ -225,10 +239,10 @@ function ListMessage({ children, role }: { children: ReactNode; role?: 'alert' }
   );
 }
 
-function formatDate(value: string): string {
+function formatDate(value: string, locale: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toDateString() === new Date().toDateString()
-    ? date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-    : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    ? date.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' })
+    : date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }

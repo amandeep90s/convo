@@ -8,6 +8,7 @@ export type RealtimeMessage = Pick<TMessage, 'id' | 'conversation_id' | 'sender_
 export type ConversationEvent = { conversation_id: string };
 
 export interface ServerRealtimeEvents {
+  'presence:updated': () => void;
   'message:created': (message: RealtimeMessage) => void;
   'message:notification': (message: RealtimeMessage) => void;
   'message:updated': (event: ConversationEvent) => void;
