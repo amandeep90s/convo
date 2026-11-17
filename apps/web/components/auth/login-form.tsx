@@ -51,7 +51,7 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
 
   const destination = safeReturnTo(returnTo);
 
-  async function submitPassword(data: LoginDto) {
+  async function handlePasswordForm(data: LoginDto) {
     await submitAuth('/api/auth/login', data, 'Sign in failed');
   }
 
@@ -147,7 +147,7 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
       </div>
 
       {mode === 'password' ? (
-        <form className="flex flex-col gap-4" onSubmit={passwordForm.handleSubmit(submitPassword)}>
+        <form className="flex flex-col gap-4" onSubmit={passwordForm.handleSubmit(handlePasswordForm)}>
           <div className="flex flex-col gap-2">
             <Label htmlFor="identifier">Email or username</Label>
             <Input
