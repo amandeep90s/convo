@@ -1,7 +1,7 @@
 'use client';
 
 import type { ClientRealtimeEvents, ServerRealtimeEvents, TypingEvent } from '@repo/shared';
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, type ReactNode,useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
 
 import { useUiText } from '@/i18n/ui-text';
@@ -25,6 +25,7 @@ export function ChatActivityProvider({ children }: { children: ReactNode }) {
     socket.current = value;
     lastSent.current = null;
     setTypers([]);
+    setError(false);
   }, []);
   const receiveTyping = useCallback((event: TypingEvent) => {
     setTypers((current) => [
@@ -37,8 +38,14 @@ export function ChatActivityProvider({ children }: { children: ReactNode }) {
     const previous = lastSent.current;
     if (previous?.id === id && previous.typing === typing && (!typing || Date.now() - previous.at < 2000)) return;
     lastSent.current = { id, typing, at: Date.now() };
-    socket.current.emit('conversation:typing', { conversation_id: id, typing }, (result) => {
-      setError(!result.ok);
+    const activeSocket = socket.current;
+    activeSocket.timeout(5000).emit('conversation:typing', { conversation_id: id, typing }, (reason, result) => {
+      if (socket.current !== activeSocket) return;
+      const failed = Boolean(reason) || result?.ok !== true;
+      setError(failed);
+      if (failed && lastSent.current?.id === id && lastSent.current.typing === typing) {
+        lastSent.current = null;
+      }
     });
   }, []);
   useEffect(() => {

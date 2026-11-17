@@ -1,7 +1,9 @@
-import { Logger, OnModuleDestroy } from '@nestjs/common';
+import { Logger, OnModuleDestroy, UseFilters } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { SkipThrottle } from '@nestjs/throttler';
 import {
+  BaseWsExceptionFilter,
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
@@ -37,6 +39,8 @@ type CallSignal = {
   payload: unknown;
 };
 
+@SkipThrottle()
+@UseFilters(new BaseWsExceptionFilter())
 @WebSocketGateway({
   cors: {
     origin: (origin, callback) => {

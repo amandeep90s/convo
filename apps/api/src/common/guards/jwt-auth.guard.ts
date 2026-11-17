@@ -31,6 +31,27 @@ export class JwtAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Socket authentication is performed by the gateway handshake, not HTTP headers.
+    if (context.getType() === 'ws') {
+      const client = context.switchToWs().getClient<{
+        data: { userId?: string; sessionId?: string };
+      }>();
+      const { userId, sessionId } = client.data;
+      if (!userId || !sessionId) return false;
+      const session = await this.prisma.userSession.findFirst({
+        where: {
+          id: sessionId,
+          user_id: userId,
+          revoked_at: null,
+          expires_at: { gt: new Date() },
+          device: { revoked_at: null },
+          user: { status: 'active', deleted_at: null },
+        },
+        select: { id: true },
+      });
+      return Boolean(session);
+    }
+
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
