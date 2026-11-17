@@ -1,10 +1,13 @@
 'use client';
 
-import { forgotPasswordSchema } from '@repo/shared';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { type ForgotPasswordDto, forgotPasswordSchema } from '@repo/shared';
 import Link from 'next/link';
-import { type FormEvent, useState } from 'react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import type { z } from 'zod';
 
-import { AuthCard, AuthError, AuthSuccess } from '@/components/auth/auth-card';
+import { AuthCard, AuthError, AuthFieldError, AuthSuccess } from '@/components/auth/auth-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,23 +16,20 @@ export function ForgotPasswordForm() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const form = useForm<z.input<typeof forgotPasswordSchema>, unknown, ForgotPasswordDto>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: { email: '' },
+  });
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const parsed = forgotPasswordSchema.safeParse({ email: formData.get('email') });
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Enter a valid email address.');
-      return;
-    }
-
+  async function submit(data: ForgotPasswordDto) {
     setError(null);
+    setMessage(null);
     setIsSubmitting(true);
     try {
       const response = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(parsed.data),
+        body: JSON.stringify(data),
       });
       const payload = (await response.json()) as { success?: boolean; message?: string };
       if (!response.ok || !payload.success) {
@@ -54,14 +54,27 @@ export function ForgotPasswordForm() {
         </Link>
       }
     >
-      <form className="flex flex-col gap-4" onSubmit={submit}>
+      <form className="flex flex-col gap-4" onSubmit={form.handleSubmit(submit)}>
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">Email address</Label>
-          <Input autoComplete="email" id="email" name="email" required type="email" />
+          <Input
+            autoComplete="email"
+            id="email"
+            aria-describedby={form.formState.errors.email ? 'email-error' : undefined}
+            aria-invalid={Boolean(form.formState.errors.email)}
+            className="h-11 rounded-xl bg-background/70 px-3"
+            type="email"
+            {...form.register('email')}
+          />
+          <AuthFieldError id="email" message={form.formState.errors.email?.message} />
         </div>
         {error && <AuthError>{error}</AuthError>}
         {message && <AuthSuccess>{message}</AuthSuccess>}
-        <Button disabled={isSubmitting} type="submit">
+        <Button
+          className="h-11 rounded-xl bg-gradient-to-r from-[#087e64] to-[#12a178] font-semibold shadow-lg shadow-primary/20 hover:brightness-105"
+          disabled={isSubmitting}
+          type="submit"
+        >
           {isSubmitting ? 'Sending…' : 'Send reset link'}
         </Button>
       </form>

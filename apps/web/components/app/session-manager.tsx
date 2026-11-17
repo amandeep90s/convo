@@ -1,5 +1,6 @@
 'use client';
 
+import type { TUserDevice, TUserSession } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Monitor, ShieldCheck } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
@@ -8,14 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ApiError, apiRequest } from '@/lib/client/api';
 
-type Session = {
-  id: string;
-  device_id: string;
-  ip_address: string | null;
-  user_agent: string | null;
-  expires_at: string;
-  created_at: string;
-  device: { device_type: string; device_name: string | null; last_seen_at: string | null };
+type Session = Pick<TUserSession, 'id' | 'device_id' | 'ip_address' | 'user_agent' | 'expires_at' | 'created_at'> & {
+  device: Pick<TUserDevice, 'device_type' | 'device_name' | 'last_seen_at'>;
 };
 
 export function SessionManager() {
@@ -47,6 +42,7 @@ export function SessionManager() {
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
+          <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">Account center</p>
           <h1 className="text-3xl font-semibold tracking-tight">Security</h1>
           <p className="mt-2 text-sm text-muted-foreground">Review devices currently signed in to your account.</p>
         </div>
@@ -108,7 +104,7 @@ function Status({ children, role }: { children: ReactNode; role?: 'alert' }) {
   );
 }
 
-function formatDate(value: string): string {
-  const date = new Date(value);
+function formatDate(value: string | Date): string {
+  const date = new Date(String(value));
   return Number.isNaN(date.getTime()) ? 'unknown time' : date.toLocaleString();
 }

@@ -1,14 +1,16 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, ArchiveRestore, MessageCircle, Star, StarOff } from 'lucide-react';
+import { Archive, ArchiveRestore, MessageCircle, Search, Star, StarOff } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import { GroupCreator } from '@/components/app/group-creator';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { ApiError, apiRequest } from '@/lib/client/api';
 import { useCurrentUser } from '@/lib/client/use-current-user';
 
@@ -51,6 +53,8 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
   const queryClient = useQueryClient();
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const pathname = usePathname();
   const copy = viewCopy[mode];
   const query = useQuery({
     queryKey: ['conversations', mode],
@@ -62,6 +66,15 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
     },
     retry: false,
   });
+  const filteredConversations =
+    query.data?.data.filter((conversation) => {
+      const term = search.trim().toLowerCase();
+      if (!term) return true;
+      const participant = user ? conversation.members.find((member) => member.user_id !== user.id)?.user : undefined;
+      return [conversation.name, participant?.name, participant?.username].some((value) =>
+        value?.toLowerCase().includes(term),
+      );
+    }) ?? [];
 
   async function updateConversation(id: string, action: 'archive' | 'restore' | 'star' | 'unstar') {
     setActionId(id);
@@ -79,26 +92,44 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <div className={`mx-auto flex min-h-0 w-full flex-col ${mode === 'recent' ? 'h-full' : 'max-w-5xl'}`}>
+      <header className="flex flex-wrap items-center justify-between gap-4 px-5 pt-6 pb-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{copy.title}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{copy.description}</p>
+          <h1 className="text-2xl font-semibold tracking-tight">{mode === 'recent' ? 'Chats' : copy.title}</h1>
+          {mode !== 'recent' && <p className="mt-2 text-sm text-muted-foreground">{copy.description}</p>}
         </div>
         {mode === 'recent' && (
           <div className="flex flex-wrap gap-2">
-            <Button render={<Link href="/contacts" />}>
+            <Button
+              aria-label="New conversation"
+              nativeButton={false}
+              render={<Link href="/contacts" />}
+              size="icon"
+              variant="ghost"
+            >
               <MessageCircle aria-hidden="true" />
-              New conversation
             </Button>
             <GroupCreator />
           </div>
         )}
       </header>
+      <div className="relative px-5 pb-3">
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute top-2.5 left-8 size-4 text-muted-foreground"
+        />
+        <Input
+          aria-label="Search conversations"
+          className="border-0 bg-muted pl-9 shadow-none"
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search conversations"
+          value={search}
+        />
+      </div>
 
       {error && (
         <p
-          className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+          className="mx-5 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
           role="alert"
         >
           {error}
@@ -109,8 +140,8 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
       {query.isSuccess && query.data.data.length === 0 && <ListMessage>{copy.empty}</ListMessage>}
 
       {query.isSuccess && query.data.data.length > 0 && (
-        <section aria-label={copy.title} className="flex flex-col gap-3">
-          {query.data.data.map((conversation) => {
+        <section aria-label={copy.title} className="min-h-0 overflow-y-auto">
+          {filteredConversations.map((conversation) => {
             const ownMembership = conversation.members.find((member) => member.user_id === user?.id);
             const participant = user
               ? conversation.members.find((member) => member.user_id !== user.id)?.user
@@ -123,52 +154,62 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
             const starred = Boolean(ownMembership?.starred_at);
             const archived = Boolean(ownMembership?.archived_at);
             return (
-              <Card className="transition-colors hover:bg-muted/20" key={conversation.id}>
-                <CardContent className="gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <Link
-                    className="min-w-0 flex-1 rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                    href={`/chat/${conversation.id}`}
-                  >
-                    <span className="flex items-center gap-2 font-medium">
-                      {title}
-                      {starred && <Star aria-label="Starred" className="size-3.5 fill-current text-amber-500" />}
+              <div
+                className={`flex items-center gap-1 px-3 transition-colors hover:bg-muted/70 ${pathname === `/chat/${conversation.id}` ? 'bg-muted' : ''}`}
+                key={conversation.id}
+              >
+                <Link
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-sm py-3 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  href={`/chat/${conversation.id}`}
+                >
+                  <Avatar className="size-12">
+                    {participant?.avatar_url && conversation.type === 'private' && (
+                      <AvatarImage alt="" src={participant.avatar_url} />
+                    )}
+                    <AvatarFallback className="bg-primary/10 font-semibold text-primary">
+                      {title.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="truncate font-medium">{title}</span>
+                      {message && (
+                        <time className="shrink-0 text-xs text-muted-foreground" dateTime={message.created_at}>
+                          {formatDate(message.created_at)}
+                        </time>
+                      )}
                     </span>
                     <span className="mt-1 block truncate text-sm text-muted-foreground">
                       {message?.content || (message ? 'Attachment or shared content' : 'No messages yet')}
                     </span>
-                    {participant && conversation.type === 'private' && (
-                      <span className="mt-1 block text-xs text-muted-foreground">@{participant.username}</span>
-                    )}
-                  </Link>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Button
-                      aria-label={starred ? 'Unstar conversation' : 'Star conversation'}
-                      disabled={actionId === conversation.id}
-                      onClick={() => void updateConversation(conversation.id, starred ? 'unstar' : 'star')}
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      {starred ? <StarOff aria-hidden="true" /> : <Star aria-hidden="true" />}
-                    </Button>
-                    <Button
-                      aria-label={archived ? 'Restore conversation' : 'Archive conversation'}
-                      disabled={actionId === conversation.id}
-                      onClick={() => void updateConversation(conversation.id, archived ? 'restore' : 'archive')}
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      {archived ? <ArchiveRestore aria-hidden="true" /> : <Archive aria-hidden="true" />}
-                    </Button>
-                    <time className="hidden text-xs text-muted-foreground lg:block" dateTime={message?.created_at}>
-                      {message ? formatDate(message.created_at) : ''}
-                    </time>
-                  </div>
-                </CardContent>
-              </Card>
+                  </span>
+                </Link>
+                <div className="flex shrink-0 items-center">
+                  <Button
+                    aria-label={starred ? 'Unstar conversation' : 'Star conversation'}
+                    disabled={actionId === conversation.id}
+                    onClick={() => void updateConversation(conversation.id, starred ? 'unstar' : 'star')}
+                    size="icon-sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    {starred ? <StarOff aria-hidden="true" /> : <Star aria-hidden="true" />}
+                  </Button>
+                  <Button
+                    aria-label={archived ? 'Restore conversation' : 'Archive conversation'}
+                    disabled={actionId === conversation.id}
+                    onClick={() => void updateConversation(conversation.id, archived ? 'restore' : 'archive')}
+                    size="icon-sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    {archived ? <ArchiveRestore aria-hidden="true" /> : <Archive aria-hidden="true" />}
+                  </Button>
+                </div>
+              </div>
             );
           })}
+          {filteredConversations.length === 0 && <ListMessage>No conversations match your search.</ListMessage>}
         </section>
       )}
     </div>
@@ -185,7 +226,8 @@ function ListMessage({ children, role }: { children: ReactNode; role?: 'alert' }
 
 function formatDate(value: string): string {
   const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? ''
-    : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toDateString() === new Date().toDateString()
+    ? date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }

@@ -1,11 +1,21 @@
 'use client';
 
-import { loginSchema, requestLoginOtpSchema, verifyLoginOtpSchema } from '@repo/shared';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  type LoginDto,
+  loginSchema,
+  type RequestLoginOtpDto,
+  requestLoginOtpSchema,
+  type VerifyLoginOtpDto,
+  verifyLoginOtpSchema,
+} from '@repo/shared';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useState } from 'react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import type { z } from 'zod';
 
-import { AuthCard, AuthError, AuthSuccess } from '@/components/auth/auth-card';
+import { AuthCard, AuthError, AuthFieldError, AuthSuccess } from '@/components/auth/auth-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,56 +36,42 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const otpEmailForm = useForm<z.input<typeof requestLoginOtpSchema>, unknown, RequestLoginOtpDto>({
+    resolver: zodResolver(requestLoginOtpSchema),
+    defaultValues: { email: '' },
+  });
+  const otpCodeForm = useForm<z.input<typeof verifyLoginOtpSchema>, unknown, VerifyLoginOtpDto>({
+    resolver: zodResolver(verifyLoginOtpSchema),
+    defaultValues: { email: '', code: '' },
+  });
+  const passwordForm = useForm<z.input<typeof loginSchema>, unknown, z.output<typeof loginSchema>>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { identifier: '', password: '' },
+  });
 
   const destination = safeReturnTo(returnTo);
 
-  async function submitPassword(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const parsed = loginSchema.safeParse({
-      identifier: formData.get('identifier'),
-      password: formData.get('password'),
-    });
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Enter your sign-in details.');
-      return;
-    }
-
-    await submitAuth('/api/auth/login', parsed.data, 'Sign in failed');
+  async function handlePasswordForm(data: LoginDto) {
+    await submitAuth('/api/auth/login', data, 'Sign in failed');
   }
 
-  async function requestCode(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const parsed = requestLoginOtpSchema.safeParse({ email });
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Enter a valid email address.');
-      return;
-    }
-
-    const succeeded = await submitAuth('/api/auth/login/otp/request', parsed.data, 'Could not request a login code');
+  async function requestCode(data: RequestLoginOtpDto) {
+    const succeeded = await submitAuth('/api/auth/login/otp/request', data, 'Could not request a login code');
     if (succeeded) {
+      setEmail(data.email);
+      otpCodeForm.reset({ email: data.email, code: '' });
       setOtpStep('verify');
       setNotice('If the account is eligible, a login code has been sent to that email address.');
     }
   }
 
-  async function verifyCode(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const parsed = verifyLoginOtpSchema.safeParse({
-      email,
-      code: formData.get('code'),
-    });
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Enter the six-digit code.');
-      return;
-    }
-    await submitAuth('/api/auth/login/otp/verify', parsed.data, 'Could not verify the login code', true);
+  async function verifyCode(data: VerifyLoginOtpDto) {
+    await submitAuth('/api/auth/login/otp/verify', data, 'Could not verify the login code', true);
   }
 
   async function submitAuth(
     endpoint: string,
-    body: unknown,
+    body: LoginDto | RequestLoginOtpDto | VerifyLoginOtpDto,
     fallbackMessage: string,
     establishesSession = false,
   ): Promise<boolean> {
@@ -151,10 +147,18 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
       </div>
 
       {mode === 'password' ? (
-        <form className="flex flex-col gap-4" onSubmit={submitPassword}>
+        <form className="flex flex-col gap-4" onSubmit={passwordForm.handleSubmit(handlePasswordForm)}>
           <div className="flex flex-col gap-2">
             <Label htmlFor="identifier">Email or username</Label>
-            <Input autoComplete="username" id="identifier" name="identifier" required />
+            <Input
+              autoComplete="username"
+              id="identifier"
+              aria-describedby={passwordForm.formState.errors.identifier ? 'identifier-error' : undefined}
+              aria-invalid={Boolean(passwordForm.formState.errors.identifier)}
+              className="h-11 rounded-xl bg-background/70 px-3"
+              {...passwordForm.register('identifier')}
+            />
+            <AuthFieldError id="identifier" message={passwordForm.formState.errors.identifier?.message} />
           </div>
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
@@ -163,30 +167,51 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
                 Forgot password?
               </Link>
             </div>
-            <Input autoComplete="current-password" id="password" name="password" required type="password" />
+            <Input
+              autoComplete="current-password"
+              id="password"
+              aria-describedby={passwordForm.formState.errors.password ? 'password-error' : undefined}
+              aria-invalid={Boolean(passwordForm.formState.errors.password)}
+              className="h-11 rounded-xl bg-background/70 px-3"
+              type="password"
+              {...passwordForm.register('password')}
+            />
+            <AuthFieldError id="password" message={passwordForm.formState.errors.password?.message} />
           </div>
           {error && <AuthError>{error}</AuthError>}
           {notice && <AuthSuccess>{notice}</AuthSuccess>}
-          <Button disabled={isSubmitting} type="submit">
+          <Button
+            className="h-11 rounded-xl bg-gradient-to-r from-[#087e64] to-[#12a178] font-semibold shadow-lg shadow-primary/20 hover:brightness-105"
+            disabled={isSubmitting}
+            type="submit"
+          >
             {isSubmitting ? 'Signing in…' : 'Sign in'}
           </Button>
         </form>
       ) : (
-        <form className="flex flex-col gap-4" onSubmit={otpStep === 'request' ? requestCode : verifyCode}>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={
+            otpStep === 'request' ? otpEmailForm.handleSubmit(requestCode) : otpCodeForm.handleSubmit(verifyCode)
+          }
+        >
           {otpStep === 'request' ? (
             <div className="flex flex-col gap-2">
               <Label htmlFor="otp-email">Email address</Label>
               <Input
                 autoComplete="email"
                 id="otp-email"
-                onChange={(event) => setEmail(event.target.value)}
-                required
+                aria-describedby={otpEmailForm.formState.errors.email ? 'otp-email-error' : undefined}
+                aria-invalid={Boolean(otpEmailForm.formState.errors.email)}
+                className="h-11 rounded-xl bg-background/70 px-3"
                 type="email"
-                value={email}
+                {...otpEmailForm.register('email')}
               />
+              <AuthFieldError id="otp-email" message={otpEmailForm.formState.errors.email?.message} />
             </div>
           ) : (
             <>
+              <input type="hidden" {...otpCodeForm.register('email')} />
               <p className="text-sm text-muted-foreground">
                 Enter the six-digit code sent to <span className="font-medium text-foreground">{email}</span>.
               </p>
@@ -194,20 +219,25 @@ export function LoginForm({ returnTo }: { returnTo?: string }) {
                 <Label htmlFor="otp-code">Login code</Label>
                 <Input
                   autoComplete="one-time-code"
-                  autoFocus
                   id="otp-code"
+                  aria-describedby={otpCodeForm.formState.errors.code ? 'otp-code-error' : undefined}
+                  aria-invalid={Boolean(otpCodeForm.formState.errors.code)}
+                  className="h-12 rounded-xl bg-background/70 px-3 text-center text-lg tracking-[0.45em]"
                   inputMode="numeric"
                   maxLength={6}
-                  name="code"
-                  pattern="[0-9]{6}"
-                  required
+                  {...otpCodeForm.register('code')}
                 />
+                <AuthFieldError id="otp-code" message={otpCodeForm.formState.errors.code?.message} />
               </div>
             </>
           )}
           {error && <AuthError>{error}</AuthError>}
           {notice && <AuthSuccess>{notice}</AuthSuccess>}
-          <Button disabled={isSubmitting} type="submit">
+          <Button
+            className="h-11 rounded-xl bg-gradient-to-r from-[#087e64] to-[#12a178] font-semibold shadow-lg shadow-primary/20 hover:brightness-105"
+            disabled={isSubmitting}
+            type="submit"
+          >
             {isSubmitting ? 'Please wait…' : otpStep === 'request' ? 'Send login code' : 'Verify and sign in'}
           </Button>
           {otpStep === 'verify' && (

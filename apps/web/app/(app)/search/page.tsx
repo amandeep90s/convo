@@ -1,31 +1,24 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
+import { searchMessagesParamsSchema, type TMessage, type TUser } from '@repo/shared';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import Link from 'next/link';
-import { type FormEvent, useState } from 'react';
+import { type ReactNode, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
-type SearchAttachment = {
-  id: string;
-  type: string;
-  file_name: string | null;
-  mime_type: string;
-};
-
-type SearchMessage = {
-  id: string;
-  conversation_id: string;
-  type: string;
-  content: string | null;
-  created_at: string;
-  sender: { id: string; username: string; name: string; avatar_url: string | null };
+type SearchAttachment = { id: string; type: string; file_name: string | null; mime_type: string };
+type SearchMessage = Pick<TMessage, 'id' | 'conversation_id' | 'type' | 'content' | 'created_at'> & {
+  sender: Pick<TUser, 'id' | 'username' | 'name' | 'avatar_url'>;
   conversation: { id: string; name: string | null; type: string };
   attachments: SearchAttachment[];
 };
-
 type SearchResponse = {
   success?: boolean;
   message?: string;
@@ -37,17 +30,34 @@ type SearchResponse = {
   };
 };
 
+const messageSearchFormSchema = z
+  .object({
+    q: searchMessagesParamsSchema.shape.q,
+    sender: z
+      .string()
+      .max(100)
+      .refine((value) => !value.trim() || value.trim().length >= 2, 'Enter at least 2 characters for the sender.')
+      .transform((value) => value.trim() || undefined),
+    from: z.string().optional(),
+    to: z.string().optional(),
+    attachmentType: z
+      .enum(['', 'image', 'video', 'audio', 'document'])
+      .transform((value) => (value === '' ? undefined : value)),
+  })
+  .refine((values) => !values.from || !values.to || values.from <= values.to, {
+    message: 'The start date must be before the end date.',
+    path: ['to'],
+  });
+
+type MessageSearchValues = z.output<typeof messageSearchFormSchema>;
+
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',
 });
 
 export default function SearchPage() {
-  const [query, setQuery] = useState('');
-  const [sender, setSender] = useState('');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const [attachmentType, setAttachmentType] = useState('');
+  const [searchCriteria, setSearchCriteria] = useState<MessageSearchValues | null>(null);
   const [searchedQuery, setSearchedQuery] = useState('');
   const [results, setResults] = useState<SearchMessage[]>([]);
   const [total, setTotal] = useState(0);
@@ -57,42 +67,37 @@ export default function SearchPage() {
   const [error, setError] = useState<string | null>(null);
   const [requiresLogin, setRequiresLogin] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const form = useForm<z.input<typeof messageSearchFormSchema>, unknown, MessageSearchValues>({
+    resolver: zodResolver(messageSearchFormSchema),
+    defaultValues: { q: '', sender: '', from: '', to: '', attachmentType: '' },
+  });
+  const formErrors = form.formState.errors;
 
-  async function search(targetPage: number) {
-    const searchTerm = query.trim();
-    if (searchTerm.length < 2) {
-      setError('Enter at least 2 characters to search.');
-      setResults([]);
-      setTotal(0);
-      setPage(1);
-      setTotalPages(0);
-      setHasSearched(false);
-      return;
-    }
-    if (sender.trim().length === 1) {
-      setError('Enter at least 2 characters for the sender filter.');
-      setResults([]);
-      setTotal(0);
-      setPage(1);
-      setTotalPages(0);
-      setHasSearched(false);
-      return;
-    }
-    if (fromDate && toDate && fromDate > toDate) {
-      setError('The start date must be before the end date.');
-      setResults([]);
-      setTotal(0);
-      setPage(1);
-      setTotalPages(0);
-      setHasSearched(false);
+  async function search(targetPage: number, criteria: MessageSearchValues) {
+    const input: z.input<typeof searchMessagesParamsSchema> = {
+      q: criteria.q,
+      page: targetPage,
+      limit: 20,
+      ...(criteria.sender ? { sender: criteria.sender } : {}),
+      ...(criteria.from ? { from: dateBoundary(criteria.from, false) } : {}),
+      ...(criteria.to ? { to: dateBoundary(criteria.to, true) } : {}),
+      ...(criteria.attachmentType ? { attachmentType: criteria.attachmentType } : {}),
+    };
+    const parsed = searchMessagesParamsSchema.safeParse(input);
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? 'Review the search filters and try again.');
       return;
     }
 
-    const params = new URLSearchParams({ q: searchTerm, page: String(targetPage), limit: '20' });
-    if (sender.trim()) params.set('sender', sender.trim());
-    if (fromDate) params.set('from', dateBoundary(fromDate, false));
-    if (toDate) params.set('to', dateBoundary(toDate, true));
-    if (attachmentType) params.set('attachmentType', attachmentType);
+    const params = new URLSearchParams({
+      q: parsed.data.q,
+      page: String(parsed.data.page ?? targetPage),
+      limit: String(parsed.data.limit ?? 20),
+    });
+    if (parsed.data.sender) params.set('sender', parsed.data.sender);
+    if (parsed.data.from) params.set('from', parsed.data.from.toISOString());
+    if (parsed.data.to) params.set('to', parsed.data.to.toISOString());
+    if (parsed.data.attachmentType) params.set('attachmentType', parsed.data.attachmentType);
 
     setError(null);
     setRequiresLogin(false);
@@ -114,7 +119,8 @@ export default function SearchPage() {
       setTotal(payload.data.total);
       setPage(payload.data.page);
       setTotalPages(payload.data.totalPages);
-      setSearchedQuery(searchTerm);
+      setSearchedQuery(criteria.q);
+      setSearchCriteria(criteria);
       setHasSearched(true);
     } catch {
       setError('Could not reach the search service. Please try again.');
@@ -127,77 +133,83 @@ export default function SearchPage() {
     }
   }
 
-  async function submitSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await search(1);
-  }
-
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 sm:px-6">
-      <header>
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Search messages</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Find messages across conversations you belong to.</p>
-        </div>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-7">
+      <header className="rounded-[1.75rem] bg-gradient-to-br from-[#063f35] via-[#087e64] to-[#25a87e] px-6 py-7 text-white shadow-xl shadow-primary/15 sm:px-9 sm:py-9">
+        <p className="text-xs font-semibold tracking-[0.18em] text-emerald-50/80 uppercase">Find a moment</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Search messages</h1>
+        <p className="mt-2 text-sm text-emerald-50/85">Find messages across conversations you belong to.</p>
       </header>
 
       <Card>
-        <CardContent>
-          <form className="flex flex-col gap-5" onSubmit={submitSearch}>
+        <CardContent className="pt-6">
+          <form
+            className="flex flex-col gap-5"
+            onSubmit={form.handleSubmit((values) => {
+              setSearchCriteria(values);
+              void search(1, values);
+            })}
+          >
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium" htmlFor="message-query">
-                Message text
-              </label>
+              <Label htmlFor="message-query">Message text</Label>
               <Input
                 autoComplete="off"
+                aria-describedby={formErrors.q ? 'message-query-error' : undefined}
+                aria-invalid={Boolean(formErrors.q)}
+                className="h-11 rounded-xl bg-background/70 px-3"
                 id="message-query"
                 maxLength={100}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search messages..."
-                value={query}
+                placeholder="Search messages…"
+                {...form.register('q')}
               />
+              {formErrors.q?.message && <FieldError id="message-query-error">{formErrors.q.message}</FieldError>}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium" htmlFor="sender">
-                  Sender
-                </label>
+                <Label htmlFor="sender">Sender</Label>
                 <Input
                   autoComplete="off"
+                  aria-describedby={formErrors.sender ? 'sender-error' : undefined}
+                  aria-invalid={Boolean(formErrors.sender)}
+                  className="h-11 rounded-xl bg-background/70 px-3"
                   id="sender"
                   maxLength={100}
-                  onChange={(event) => setSender(event.target.value)}
                   placeholder="Name or username"
-                  value={sender}
+                  {...form.register('sender')}
                 />
+                {formErrors.sender?.message && <FieldError id="sender-error">{formErrors.sender.message}</FieldError>}
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium" htmlFor="from-date">
-                  From date
-                </label>
+                <Label htmlFor="from-date">From date</Label>
                 <Input
+                  aria-describedby={formErrors.from ? 'from-date-error' : undefined}
+                  aria-invalid={Boolean(formErrors.from)}
+                  className="h-11 rounded-xl bg-background/70 px-3"
                   id="from-date"
-                  onChange={(event) => setFromDate(event.target.value)}
                   type="date"
-                  value={fromDate}
+                  {...form.register('from')}
                 />
+                {formErrors.from?.message && <FieldError id="from-date-error">{formErrors.from.message}</FieldError>}
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium" htmlFor="to-date">
-                  To date
-                </label>
-                <Input id="to-date" onChange={(event) => setToDate(event.target.value)} type="date" value={toDate} />
+                <Label htmlFor="to-date">To date</Label>
+                <Input
+                  aria-describedby={formErrors.to ? 'to-date-error' : undefined}
+                  aria-invalid={Boolean(formErrors.to)}
+                  className="h-11 rounded-xl bg-background/70 px-3"
+                  id="to-date"
+                  type="date"
+                  {...form.register('to')}
+                />
+                {formErrors.to?.message && <FieldError id="to-date-error">{formErrors.to.message}</FieldError>}
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium" htmlFor="attachment-type">
-                  Attachment
-                </label>
+                <Label htmlFor="attachment-type">Attachment</Label>
                 <select
-                  className="h-9 rounded-md border border-input bg-background px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="h-11 rounded-xl border border-input bg-background/70 px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   id="attachment-type"
-                  onChange={(event) => setAttachmentType(event.target.value)}
-                  value={attachmentType}
+                  {...form.register('attachmentType')}
                 >
                   <option value="">Any type</option>
                   <option value="image">Images</option>
@@ -209,9 +221,13 @@ export default function SearchPage() {
             </div>
 
             <div className="flex justify-end">
-              <Button disabled={isSearching} type="submit">
+              <Button
+                className="h-11 rounded-xl bg-gradient-to-r from-[#087e64] to-[#12a178] px-5 font-semibold shadow-lg shadow-primary/15 hover:brightness-105"
+                disabled={isSearching}
+                type="submit"
+              >
                 <Search aria-hidden="true" />
-                {isSearching ? 'Searching...' : 'Search'}
+                {isSearching ? 'Searching…' : 'Search messages'}
               </Button>
             </div>
           </form>
@@ -221,7 +237,7 @@ export default function SearchPage() {
       {error && (
         <div
           aria-live="polite"
-          className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+          className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
           role="alert"
         >
           <p>{error}</p>
@@ -245,7 +261,7 @@ export default function SearchPage() {
           </div>
           {results.map((result) => (
             <Card key={result.id}>
-              <CardContent className="gap-3">
+              <CardContent className="gap-3 py-5">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                   <div className="flex flex-wrap items-baseline gap-x-2">
                     <span className="font-medium">{result.sender.name}</span>
@@ -256,8 +272,8 @@ export default function SearchPage() {
                         (result.conversation.type === 'private' ? 'Direct message' : 'Conversation')}
                     </span>
                   </div>
-                  <time className="text-xs text-muted-foreground" dateTime={result.created_at}>
-                    {dateFormatter.format(new Date(result.created_at))}
+                  <time className="text-xs text-muted-foreground" dateTime={String(result.created_at)}>
+                    {dateFormatter.format(new Date(String(result.created_at)))}
                   </time>
                 </div>
                 {result.content && (
@@ -282,8 +298,9 @@ export default function SearchPage() {
           ))}
           <nav aria-label="Search result pages" className="flex items-center justify-center gap-3 pt-2">
             <Button
-              disabled={isSearching || page <= 1}
-              onClick={() => void search(page - 1)}
+              className="rounded-xl"
+              disabled={isSearching || page <= 1 || !searchCriteria}
+              onClick={() => searchCriteria && void search(page - 1, searchCriteria)}
               type="button"
               variant="outline"
             >
@@ -291,8 +308,9 @@ export default function SearchPage() {
               Previous
             </Button>
             <Button
-              disabled={isSearching || page >= totalPages}
-              onClick={() => void search(page + 1)}
+              className="rounded-xl"
+              disabled={isSearching || page >= totalPages || !searchCriteria}
+              onClick={() => searchCriteria && void search(page + 1, searchCriteria)}
               type="button"
               variant="outline"
             >
@@ -304,13 +322,21 @@ export default function SearchPage() {
       )}
 
       {!isSearching && !error && results.length === 0 && total === 0 && (
-        <p className="py-8 text-center text-sm text-muted-foreground">
+        <p className="rounded-2xl border border-border/70 bg-card/60 px-5 py-8 text-center text-sm text-muted-foreground">
           {hasSearched
             ? 'No messages matched those search terms and filters.'
-            : 'Enter a message phrase to search your conversation history.'}
+            : 'Enter a phrase to search your conversation history.'}
         </p>
       )}
-    </main>
+    </div>
+  );
+}
+
+function FieldError({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <p className="text-xs font-medium text-destructive" id={id}>
+      {children}
+    </p>
   );
 }
 

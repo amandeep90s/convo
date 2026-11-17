@@ -1,34 +1,78 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  createUserSettingsSchema,
+  type TUserSettings,
+  type UpdateUserSettingsDto,
+  visibilitySchema,
+} from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Bell, CircleCheck, Eye, Languages, MessageCircle, Monitor } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { type FormEvent, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
+import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { ApiError, apiRequest } from '@/lib/client/api';
 
-type Settings = {
-  language: string;
-  theme: string;
-  read_receipts: boolean;
-  last_seen_visibility: 'everyone' | 'contacts' | 'nobody';
-  online_visibility: 'everyone' | 'contacts' | 'nobody';
-  profile_visibility: 'everyone' | 'contacts' | 'nobody';
-  notification_enabled: boolean;
-};
 type Section = 'appearance' | 'language' | 'privacy' | 'notifications' | 'chats';
-type Update = Partial<Settings>;
 
-const sectionInfo: Record<Section, { title: string; description: string }> = {
-  appearance: { title: 'Appearance', description: 'Set the theme and preferred language for your account.' },
-  language: { title: 'Language', description: 'Choose the language preference saved to your account.' },
-  privacy: { title: 'Privacy', description: 'Control profile and presence visibility for other people.' },
-  notifications: { title: 'Notifications', description: 'Choose whether account notifications are enabled.' },
-  chats: { title: 'Chat preferences', description: 'Choose whether read receipts are shared with other participants.' },
+const preferenceFormSchema = createUserSettingsSchema.extend({
+  language: createUserSettingsSchema.shape.language.unwrap(),
+  theme: createUserSettingsSchema.shape.theme.unwrap(),
+  read_receipts: z.boolean(),
+  last_seen_visibility: visibilitySchema,
+  online_visibility: visibilitySchema,
+  profile_visibility: visibilitySchema,
+  notification_enabled: z.boolean(),
+});
+
+type PreferenceValues = z.output<typeof preferenceFormSchema>;
+
+const sectionInfo: Record<Section, { title: string; description: string; icon: typeof Monitor }> = {
+  appearance: {
+    title: 'Appearance',
+    description: 'Choose the colors and language that make Convo feel like yours.',
+    icon: Monitor,
+  },
+  language: {
+    title: 'Language',
+    description: 'Choose the language used across your Convo experience.',
+    icon: Languages,
+  },
+  privacy: {
+    title: 'Privacy',
+    description: 'Decide who can see your profile and presence.',
+    icon: Eye,
+  },
+  notifications: {
+    title: 'Notifications',
+    description: 'Manage account notifications for important activity.',
+    icon: Bell,
+  },
+  chats: {
+    title: 'Chat preferences',
+    description: 'Choose whether read receipts are shared with other people.',
+    icon: MessageCircle,
+  },
 };
+
+const languages = [
+  { value: 'en', label: 'English' },
+  { value: 'pa', label: 'Punjabi' },
+  { value: 'hi', label: 'Hindi' },
+] as const;
+
+const themes = [
+  { value: 'system', label: 'Use device setting' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+] as const;
 
 export function PreferenceSettings({ section }: { section: Section }) {
   const queryClient = useQueryClient();
@@ -38,11 +82,11 @@ export function PreferenceSettings({ section }: { section: Section }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const query = useQuery({
     queryKey: ['user-settings'],
-    queryFn: () => apiRequest<Settings>('user-settings'),
+    queryFn: () => apiRequest<TUserSettings>('user-settings'),
     retry: false,
   });
   const updateSettings = useMutation({
-    mutationFn: (body: Update) => apiRequest<Settings>('user-settings', { method: 'PATCH', body }),
+    mutationFn: (body: UpdateUserSettingsDto) => apiRequest<TUserSettings>('user-settings', { method: 'PATCH', body }),
     onSuccess: async (settings) => {
       setSubmitError(null);
       setNotice('Your preferences have been saved.');
@@ -57,138 +101,59 @@ export function PreferenceSettings({ section }: { section: Section }) {
       setSubmitError(reason instanceof ApiError ? reason.message : 'Could not save your preferences.'),
   });
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const update: Update = {};
-    if (section === 'appearance') {
-      update.theme = String(formData.get('theme') ?? 'system');
-      update.language = String(formData.get('language') ?? 'en');
-    } else if (section === 'language') {
-      update.language = String(formData.get('language') ?? 'en');
-    } else if (section === 'privacy') {
-      const profileVisibility = getVisibility(formData.get('profile_visibility'));
-      const onlineVisibility = getVisibility(formData.get('online_visibility'));
-      const lastSeenVisibility = getVisibility(formData.get('last_seen_visibility'));
-      if (!profileVisibility || !onlineVisibility || !lastSeenVisibility) {
-        setSubmitError('Choose a valid visibility option for each preference.');
-        return;
-      }
-      update.profile_visibility = profileVisibility;
-      update.online_visibility = onlineVisibility;
-      update.last_seen_visibility = lastSeenVisibility;
-    } else if (section === 'notifications') {
-      update.notification_enabled = formData.get('notification_enabled') === 'on';
-    } else {
-      update.read_receipts = formData.get('read_receipts') === 'on';
-    }
+  function submit(values: PreferenceValues) {
+    const update: UpdateUserSettingsDto =
+      section === 'appearance'
+        ? { theme: values.theme, language: values.language }
+        : section === 'language'
+          ? { language: values.language }
+          : section === 'privacy'
+            ? {
+                profile_visibility: values.profile_visibility,
+                online_visibility: values.online_visibility,
+                last_seen_visibility: values.last_seen_visibility,
+              }
+            : section === 'notifications'
+              ? { notification_enabled: values.notification_enabled }
+              : { read_receipts: values.read_receipts };
+
     setNotice(null);
     setSubmitError(null);
     updateSettings.mutate(update);
   }
 
   const info = sectionInfo[section];
+  const Icon = info.icon;
 
   return (
     <div className="mx-auto w-full max-w-3xl">
       <header className="mb-6">
-        <h1 className="text-3xl font-semibold tracking-tight">{info.title}</h1>
+        <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">Account center</p>
+        <h1 className="mt-2 flex items-center gap-2 text-3xl font-semibold tracking-tight">
+          <Icon aria-hidden="true" className="size-6 text-primary" />
+          {info.title}
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">{info.description}</p>
       </header>
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b border-border/60 pb-5">
           <CardTitle>Preferences</CardTitle>
         </CardHeader>
-        <CardContent>
-          {query.isPending && <p className="text-sm text-muted-foreground">Loading preferences…</p>}
+        <CardContent className="pt-6">
+          {query.isPending && <PreferenceStatus>Loading preferences…</PreferenceStatus>}
           {query.isError && (
-            <p className="text-sm text-destructive" role="alert">
-              {query.error.message}
-            </p>
+            <PreferenceStatus role="alert">Could not load preferences. {query.error.message}</PreferenceStatus>
           )}
           {query.data && (
-            <form className="flex flex-col gap-5" onSubmit={submit}>
-              {(section === 'appearance' || section === 'language') && (
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="settings-language">Language</Label>
-                  <select
-                    className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
-                    defaultValue={query.data.language}
-                    id="settings-language"
-                    name="language"
-                  >
-                    <option value="en">English</option>
-                    <option value="pa">Punjabi</option>
-                    <option value="hi">Hindi</option>
-                  </select>
-                </div>
-              )}
-              {section === 'appearance' && (
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="settings-theme">Theme</Label>
-                  <select
-                    className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
-                    defaultValue={query.data.theme}
-                    id="settings-theme"
-                    name="theme"
-                  >
-                    <option value="system">System</option>
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
-                  </select>
-                </div>
-              )}
-              {section === 'privacy' && (
-                <>
-                  <VisibilitySelect
-                    label="Profile visibility"
-                    name="profile_visibility"
-                    value={query.data.profile_visibility}
-                  />
-                  <VisibilitySelect
-                    label="Online status visibility"
-                    name="online_visibility"
-                    value={query.data.online_visibility}
-                  />
-                  <VisibilitySelect
-                    label="Last seen visibility"
-                    name="last_seen_visibility"
-                    value={query.data.last_seen_visibility}
-                  />
-                </>
-              )}
-              {section === 'notifications' && (
-                <BooleanSetting
-                  checked={query.data.notification_enabled}
-                  description="Allow notifications for account activity."
-                  label="Notifications enabled"
-                  name="notification_enabled"
-                />
-              )}
-              {section === 'chats' && (
-                <BooleanSetting
-                  checked={query.data.read_receipts}
-                  description="Let people in your conversations know when you have read their messages."
-                  label="Read receipts"
-                  name="read_receipts"
-                />
-              )}
-              {notice && (
-                <p className="text-sm text-green-700 dark:text-green-400" role="status">
-                  {notice}
-                </p>
-              )}
-              {submitError && (
-                <p className="text-sm text-destructive" role="alert">
-                  {submitError}
-                </p>
-              )}
-              <div>
-                <Button disabled={updateSettings.isPending} type="submit">
-                  {updateSettings.isPending ? 'Saving…' : 'Save preferences'}
-                </Button>
-              </div>
-            </form>
+            <PreferenceForm
+              key={section}
+              section={section}
+              settings={query.data}
+              isPending={updateSettings.isPending}
+              notice={notice}
+              submitError={submitError}
+              onSubmit={submit}
+            />
           )}
         </CardContent>
       </Card>
@@ -196,28 +161,188 @@ export function PreferenceSettings({ section }: { section: Section }) {
   );
 }
 
-function getVisibility(value: FormDataEntryValue | null): Settings['profile_visibility'] | null {
-  if (value === 'everyone' || value === 'contacts' || value === 'nobody') return value;
-  return null;
+function PreferenceForm({
+  section,
+  settings,
+  isPending,
+  notice,
+  submitError,
+  onSubmit,
+}: {
+  section: Section;
+  settings: TUserSettings;
+  isPending: boolean;
+  notice: string | null;
+  submitError: string | null;
+  onSubmit: (values: PreferenceValues) => void;
+}) {
+  const defaultValues = useMemo(
+    () => ({
+      language: settings.language,
+      theme: settings.theme,
+      read_receipts: settings.read_receipts,
+      last_seen_visibility: settings.last_seen_visibility,
+      online_visibility: settings.online_visibility,
+      profile_visibility: settings.profile_visibility,
+      notification_enabled: settings.notification_enabled,
+    }),
+    [settings],
+  );
+  const form = useForm<z.input<typeof preferenceFormSchema>, unknown, PreferenceValues>({
+    resolver: zodResolver(preferenceFormSchema),
+    defaultValues,
+  });
+  const { register, handleSubmit, reset, formState } = form;
+
+  useEffect(() => reset(defaultValues), [defaultValues, reset]);
+
+  return (
+    <form className="flex flex-col gap-6" onSubmit={handleSubmit(onSubmit)}>
+      {(section === 'appearance' || section === 'language') && (
+        <SettingSelect
+          description="Used for menus and account screens."
+          id="settings-language"
+          label="Language"
+          options={languages}
+          registration={register('language')}
+          value={settings.language}
+          error={formState.errors.language?.message}
+        />
+      )}
+      {section === 'appearance' && (
+        <SettingSelect
+          description="This preference follows your account on other signed-in devices."
+          id="settings-theme"
+          label="Theme"
+          options={themes}
+          registration={register('theme')}
+          value={settings.theme}
+          error={formState.errors.theme?.message}
+        />
+      )}
+      {section === 'privacy' && (
+        <div className="grid gap-4">
+          <VisibilitySelect
+            description="Who can view your profile details."
+            label="Profile visibility"
+            registration={register('profile_visibility')}
+          />
+          <VisibilitySelect
+            description="Who can see when you are online."
+            label="Online status"
+            registration={register('online_visibility')}
+          />
+          <VisibilitySelect
+            description="Who can see when you were last active."
+            label="Last seen"
+            registration={register('last_seen_visibility')}
+          />
+        </div>
+      )}
+      {section === 'notifications' && (
+        <BooleanSetting
+          description="Allow notifications for account activity."
+          label="Notifications enabled"
+          registration={register('notification_enabled')}
+        />
+      )}
+      {section === 'chats' && (
+        <BooleanSetting
+          description="Let people in your conversations know when you have read their messages."
+          label="Read receipts"
+          registration={register('read_receipts')}
+        />
+      )}
+      {notice && (
+        <p className="flex items-center gap-2 text-sm text-primary" role="status">
+          <CircleCheck aria-hidden="true" className="size-4" />
+          {notice}
+        </p>
+      )}
+      {submitError && (
+        <p className="text-sm text-destructive" role="alert">
+          {submitError}
+        </p>
+      )}
+      <div>
+        <Button
+          className="h-11 rounded-xl bg-gradient-to-r from-[#087e64] to-[#12a178] px-5 font-semibold shadow-lg shadow-primary/20 hover:brightness-105"
+          disabled={isPending}
+          type="submit"
+        >
+          {isPending ? 'Saving preferences…' : 'Save preferences'}
+        </Button>
+      </div>
+    </form>
+  );
 }
 
-function VisibilitySelect({
+function SettingSelect({
+  description,
+  id,
   label,
-  name,
+  options,
+  registration,
   value,
+  error,
 }: {
+  description: string;
+  id: string;
   label: string;
-  name: string;
-  value: Settings['profile_visibility'];
+  options: readonly { value: string; label: string }[];
+  registration: UseFormRegisterReturn;
+  value: string;
+  error?: string;
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <Label htmlFor={name}>{label}</Label>
+      <Label htmlFor={id}>{label}</Label>
       <select
-        className="h-9 rounded-md border border-input bg-background px-2.5 text-sm"
-        defaultValue={value}
-        id={name}
-        name={name}
+        aria-describedby={error ? `${id}-error` : undefined}
+        aria-invalid={Boolean(error)}
+        className="h-11 rounded-xl border border-input bg-background/70 px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
+        id={id}
+        {...registration}
+      >
+        {!options.some((option) => option.value === value) && (
+          <option value={value}>{`Current setting (${value})`}</option>
+        )}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {error ? (
+        <p className="text-xs font-medium text-destructive" id={`${id}-error`}>
+          {error}
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">{description}</p>
+      )}
+    </div>
+  );
+}
+
+function VisibilitySelect({
+  description,
+  label,
+  registration,
+}: {
+  description: string;
+  label: string;
+  registration: UseFormRegisterReturn;
+}) {
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-border/70 bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <span>
+        <Label className="text-sm font-medium">{label}</Label>
+        <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
+      </span>
+      <select
+        aria-label={label}
+        className="h-10 min-w-40 rounded-xl border border-input bg-background px-3 text-sm"
+        {...registration}
       >
         <option value="everyone">Everyone</option>
         <option value="contacts">Contacts only</option>
@@ -228,23 +353,35 @@ function VisibilitySelect({
 }
 
 function BooleanSetting({
-  checked,
   description,
   label,
-  name,
+  registration,
 }: {
-  checked: boolean;
   description: string;
   label: string;
-  name: string;
+  registration: UseFormRegisterReturn;
 }) {
   return (
-    <label className="flex items-start gap-3 rounded-lg border p-4">
-      <input className="mt-1 size-4 accent-primary" defaultChecked={checked} name={name} type="checkbox" />
+    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-border/70 bg-muted/20 p-4">
       <span>
         <span className="block text-sm font-medium">{label}</span>
         <span className="mt-1 block text-sm text-muted-foreground">{description}</span>
       </span>
+      <span className="relative inline-flex shrink-0 items-center">
+        <input aria-label={label} className="peer sr-only" type="checkbox" {...registration} />
+        <span className="h-6 w-11 rounded-full bg-muted transition-colors peer-checked:bg-primary peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring after:absolute after:top-1 after:left-1 after:size-4 after:rounded-full after:bg-background after:shadow-sm after:transition-transform peer-checked:after:translate-x-5" />
+      </span>
     </label>
+  );
+}
+
+function PreferenceStatus({ children, role }: { children: React.ReactNode; role?: 'alert' }) {
+  return (
+    <p
+      className="rounded-2xl border border-border/70 bg-muted/20 px-5 py-8 text-center text-sm text-muted-foreground"
+      role={role}
+    >
+      {children}
+    </p>
   );
 }

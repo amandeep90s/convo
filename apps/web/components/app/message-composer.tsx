@@ -1,8 +1,12 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
+import { type CreateMessageDto, createMessageSchema } from '@repo/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Paperclip, Send } from 'lucide-react';
-import { type FormEvent, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
+import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,20 +27,32 @@ const supportedFiles: Record<string, 'image' | 'video' | 'audio' | 'document'> =
   'text/plain': 'document',
 };
 
+const messageFormSchema = createMessageSchema.pick({ content: true }).extend({
+  content: z.string().trim().min(1, 'Write a message before sending.').max(10000),
+});
+
 export function MessageComposer({ conversationId, disabled = false }: { conversationId: string; disabled?: boolean }) {
   const queryClient = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
-  const [messageText, setMessageText] = useState('');
+  const { control, register, handleSubmit, reset, formState } = useForm<
+    z.input<typeof messageFormSchema>,
+    unknown,
+    z.output<typeof messageFormSchema>
+  >({
+    resolver: zodResolver(messageFormSchema),
+    defaultValues: { content: '' },
+  });
+  const messageText = useWatch({ control, name: 'content' }) ?? '';
   const [uploading, setUploading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const sendMessage = useMutation({
-    mutationFn: (content: string) =>
+    mutationFn: (body: CreateMessageDto) =>
       apiRequest('messages', {
         method: 'POST',
-        body: { conversation_id: conversationId, type: 'text', content },
+        body,
       }),
     onSuccess: async () => {
-      setMessageText('');
+      reset();
       setSubmitError(null);
       try {
         await refreshConversationQueries();
@@ -49,12 +65,10 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
     onError: (error) => setSubmitError(toMessage(error, 'Could not send this message.')),
   });
 
-  async function submitMessage(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const content = messageText.trim();
-    if (!content || sendMessage.isPending || uploading) return;
+  function submitMessage({ content }: z.output<typeof messageFormSchema>) {
+    if (sendMessage.isPending || uploading) return;
     setSubmitError(null);
-    await sendMessage.mutateAsync(content).catch(() => undefined);
+    sendMessage.mutate({ conversation_id: conversationId, type: 'text', content });
   }
 
   async function uploadFile(file: File) {
@@ -74,9 +88,10 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
     setSubmitError(null);
     let message: CreatedMessage;
     try {
+      const body: CreateMessageDto = { conversation_id: conversationId, type, content: file.name };
       message = await apiRequest<CreatedMessage>('messages', {
         method: 'POST',
-        body: { conversation_id: conversationId, type, content: file.name },
+        body,
       });
     } catch (error) {
       setSubmitError(toMessage(error, 'Could not prepare the attachment.'));
@@ -127,7 +142,12 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
           {submitError}
         </p>
       )}
-      <form className="flex items-end gap-2" onSubmit={submitMessage}>
+      {formState.errors.content?.message && (
+        <p className="mb-2 text-xs text-destructive" id="message-content-error" role="alert">
+          {formState.errors.content.message}
+        </p>
+      )}
+      <form className="flex items-end gap-2" onSubmit={handleSubmit(submitMessage)}>
         <input
           accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,audio/mpeg,audio/ogg,audio/wav,application/pdf,text/plain"
           className="sr-only"
@@ -146,22 +166,25 @@ export function MessageComposer({ conversationId, disabled = false }: { conversa
           onClick={() => fileInput.current?.click()}
           size="icon"
           type="button"
-          variant="outline"
+          variant="ghost"
         >
           <Paperclip aria-hidden="true" />
         </Button>
         <Input
           aria-label="Write a message"
+          aria-invalid={Boolean(formState.errors.content)}
+          aria-describedby={formState.errors.content ? 'message-content-error' : undefined}
           autoComplete="off"
+          className="h-11 rounded-2xl border border-border/70 bg-background shadow-sm"
           disabled={disabled || uploading}
           maxLength={10000}
-          onChange={(event) => setMessageText(event.target.value)}
           placeholder={uploading ? 'Uploading attachment…' : 'Write a message…'}
-          value={messageText}
+          {...register('content')}
         />
         <Button
           aria-label="Send message"
-          disabled={disabled || !messageText.trim() || sendMessage.isPending || uploading}
+          className="size-11 rounded-full bg-gradient-to-br from-[#087e64] to-[#12a178] text-white shadow-lg shadow-primary/20 hover:brightness-105"
+          disabled={disabled || !messageText || sendMessage.isPending || uploading}
           size="icon"
           type="submit"
         >

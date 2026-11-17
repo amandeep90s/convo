@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 const settingsSections = [
   {
@@ -87,31 +87,53 @@ const settingsSections = [
 
 export function SettingsOverview() {
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-      <header>
-        <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Manage your profile, preferences, and account security.</p>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-7">
+      <header className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-[#063f35] via-[#087e64] to-[#25a87e] px-6 py-7 text-white shadow-xl shadow-primary/15 sm:px-9 sm:py-9">
+        <div aria-hidden="true" className="absolute -top-20 -right-10 size-64 rounded-full border border-white/15" />
+        <div aria-hidden="true" className="absolute right-24 -bottom-28 size-52 rounded-full bg-white/10 blur-2xl" />
+        <div className="relative">
+          <p className="text-xs font-semibold tracking-[0.18em] text-emerald-50/80 uppercase">Your workspace</p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Settings</h1>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-emerald-50/85">
+            Make Convo feel like yours. Manage your profile, preferences, and account security.
+          </p>
+        </div>
       </header>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <section aria-label="Settings categories" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {settingsSections.map(({ href, title, description, icon: Icon }) => (
           <Link
-            className="rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="group rounded-[1.3rem] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             href={href}
             key={href}
           >
-            <Card className="h-full transition-colors hover:bg-muted/30">
-              <CardContent className="flex-row items-start gap-4">
-                <Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
-                <span className="min-w-0 flex-1">
-                  <span className="font-medium">{title}</span>
-                  <span className="mt-1 block text-sm leading-5 text-muted-foreground">{description}</span>
+            <Card className="h-full transition duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/25 group-hover:bg-primary/[0.025]">
+              <CardHeader className="flex-row items-start gap-4">
+                <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-primary/15 to-emerald-200/50 text-primary dark:to-emerald-900/40">
+                  <Icon aria-hidden="true" className="size-5" />
                 </span>
-                <ArrowRight aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-              </CardContent>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center justify-between gap-3">
+                    <span className="font-semibold">{title}</span>
+                    <ArrowRight
+                      aria-hidden="true"
+                      className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary"
+                    />
+                  </span>
+                  <span className="mt-1.5 block text-sm leading-5 text-muted-foreground">{description}</span>
+                </span>
+              </CardHeader>
             </Card>
           </Link>
         ))}
-      </div>
+      </section>
+      <Card className="bg-gradient-to-r from-primary/[0.06] to-transparent">
+        <CardContent className="flex-row items-center gap-3 py-4">
+          <Shield aria-hidden="true" className="size-5 shrink-0 text-primary" />
+          <p className="text-sm text-muted-foreground">
+            Your account preferences are saved to your profile and used across your signed-in sessions.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
