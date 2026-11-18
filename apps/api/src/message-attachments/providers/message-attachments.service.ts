@@ -11,6 +11,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  MAX_MESSAGE_ATTACHMENT_BYTES,
+  MESSAGE_ATTACHMENT_MIME_TYPES,
+} from '@repo/shared';
 
 import { removeMessageFiles } from '@/common/message-files';
 import { ConversationAccessService } from '@/common/providers/conversation-access.service';
@@ -31,18 +35,6 @@ export type UploadedMessageFile = {
 @Injectable()
 export class MessageAttachmentsService {
   private readonly uploadDir: string;
-  private readonly allowedMimeTypes = new Set([
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'video/mp4',
-    'audio/mpeg',
-    'audio/ogg',
-    'audio/wav',
-    'application/pdf',
-    'text/plain',
-  ]);
 
   constructor(
     private readonly configService: ConfigService,
@@ -168,10 +160,10 @@ export class MessageAttachmentsService {
   private async storeFile(
     file: UploadedMessageFile,
   ): Promise<StoredMessageAttachment> {
-    if (!this.allowedMimeTypes.has(file.mimetype)) {
+    if (!MESSAGE_ATTACHMENT_MIME_TYPES.includes(file.mimetype)) {
       throw new BadRequestException('Unsupported file type');
     }
-    if (file.size < 1 || file.size > 20 * 1024 * 1024) {
+    if (file.size < 1 || file.size > MAX_MESSAGE_ATTACHMENT_BYTES) {
       throw new BadRequestException('Files must be between 1 byte and 20 MB');
     }
     await mkdir(this.uploadDir, { recursive: true });

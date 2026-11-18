@@ -11,6 +11,7 @@ import { useChatActivity } from '@/components/app/chat-activity';
 import { DeleteChatDialog } from '@/components/app/delete-chat-dialog';
 import { MemberManager } from '@/components/app/member-manager';
 import { MessageActions } from '@/components/app/message-actions';
+import { MessageAudio } from '@/components/app/message-audio';
 import { MessageComposer } from '@/components/app/message-composer';
 import { MessageReactions } from '@/components/app/message-reactions';
 import { PresenceStatus } from '@/components/app/presence-status';
@@ -158,7 +159,7 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
       setShowLatest(false);
     }
     previousLatest.current = { conversationId, messageId: latest?.id };
-  }, [conversationId, currentUser?.id, messages.data?.pages, messages.isSuccess, orderedMessages]);
+  }, [conversationId, currentUser?.id, messages.isSuccess, orderedMessages]);
 
   useEffect(() => {
     if (!isVisible || !currentUser) return;
@@ -397,14 +398,18 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
                         <ul className="mt-2 flex flex-col gap-1">
                           {message.attachments.map((attachment) => (
                             <li key={attachment.id}>
-                              <a
-                                className="text-xs underline underline-offset-2"
-                                href={`/api/backend/message-attachments/${attachment.id}/file`}
-                                rel="noreferrer"
-                                target="_blank"
-                              >
-                                {attachment.file_name || text('Download attachment')}
-                              </a>
+                              {attachment.mime_type?.startsWith('audio/') ? (
+                                <MessageAudio attachmentId={attachment.id} />
+                              ) : (
+                                <a
+                                  className="text-xs underline underline-offset-2"
+                                  href={`/api/backend/message-attachments/${attachment.id}/file`}
+                                  rel="noreferrer"
+                                  target="_blank"
+                                >
+                                  {attachment.file_name || text('Download attachment')}
+                                </a>
+                              )}
                             </li>
                           ))}
                         </ul>
@@ -494,17 +499,21 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
               <p className="text-sm break-words whitespace-pre-wrap">
                 {preview.data.content || text('Shared attachment')}
               </p>
-              {preview.data.attachments.map((file) => (
-                <a
-                  key={file.id}
-                  className="mt-2 block text-sm underline"
-                  href={`/api/backend/message-attachments/${file.id}/file`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {file.file_name || text('Download attachment')}
-                </a>
-              ))}
+              {preview.data.attachments.map((file) =>
+                file.mime_type?.startsWith('audio/') ? (
+                  <MessageAudio key={file.id} attachmentId={file.id} />
+                ) : (
+                  <a
+                    key={file.id}
+                    className="mt-2 block text-sm underline"
+                    href={`/api/backend/message-attachments/${file.id}/file`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {file.file_name || text('Download attachment')}
+                  </a>
+                ),
+              )}
             </div>
           )}
         </DialogContent>

@@ -1,7 +1,13 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type CreateMessageDto, createMessageSchema, type MessagePreview } from '@repo/shared';
+import {
+  type CreateMessageDto,
+  createMessageSchema,
+  MAX_MESSAGE_ATTACHMENT_BYTES,
+  MESSAGE_ATTACHMENT_MIME_TYPES,
+  type MessagePreview,
+} from '@repo/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { EmojiClickData } from 'emoji-picker-react';
 import { Paperclip, Send, Smile, X } from 'lucide-react';
@@ -11,6 +17,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
 import { useChatActivity } from '@/components/app/chat-activity';
+import { VoiceNoteRecorder } from '@/components/app/voice-note-recorder';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
@@ -19,19 +26,6 @@ import { ApiError, apiRequest } from '@/lib/client/api';
 import { useCurrentUser } from '@/lib/client/use-current-user';
 
 const ChatEmojiPicker = dynamic(() => import('@/components/app/chat-emoji-picker'), { ssr: false });
-const MAX_FILE_BYTES = 20 * 1024 * 1024;
-const supportedFiles: Record<string, 'image' | 'video' | 'audio' | 'document'> = {
-  'image/jpeg': 'image',
-  'image/png': 'image',
-  'image/gif': 'image',
-  'image/webp': 'image',
-  'video/mp4': 'video',
-  'audio/mpeg': 'audio',
-  'audio/ogg': 'audio',
-  'audio/wav': 'audio',
-  'application/pdf': 'document',
-  'text/plain': 'document',
-};
 
 const messageFormSchema = createMessageSchema.pick({ content: true }).extend({
   content: z.string().trim().min(1, 'Write a message before sending.').max(10000),
@@ -60,7 +54,7 @@ export function MessageComposer({
   const inputRef = useRef<HTMLInputElement>(null);
   const selection = useRef<{ start: number; end: number } | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
-  const { control, register, handleSubmit, reset, formState, getValues, setValue, setError } = useForm<
+  const { control, register, handleSubmit, reset, watch, formState, getValues, setValue, setError } = useForm<
     z.input<typeof messageFormSchema>,
     unknown,
     z.output<typeof messageFormSchema>
@@ -71,10 +65,12 @@ export function MessageComposer({
   const messageText = useWatch({ control, name: 'content' }) ?? '';
   const contentRegistration = register('content');
   const [uploading, setUploading] = useState(false);
+  const [voiceActive, setVoiceActive] = useState(false);
+  const uploadInFlight = useRef(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   useEffect(() => {
     if (reply) inputRef.current?.focus();
-  }, [reply]);
+  }, [reply?.id]);
   useEffect(() => {
     if (!user?.id) return;
     const key = `convo:draft:${user.id}:${conversationId}`;
@@ -84,17 +80,16 @@ export function MessageComposer({
       setDraftError(text('Draft storage is unavailable. Keep this tab open to retain your text.'));
     }
     setDraftReady(true);
-  }, [conversationId, user?.id, reset, text]);
-  useEffect(() => {
-    if (!user?.id || !draftReady) return;
-    const key = `convo:draft:${user.id}:${conversationId}`;
-    try {
-      if (messageText) sessionStorage.setItem(key, messageText);
-      else sessionStorage.removeItem(key);
-    } catch {
-      setDraftError(text('Draft storage is unavailable. Keep this tab open to retain your text.'));
-    }
-  }, [conversationId, draftReady, messageText, text, user?.id]);
+    const subscription = watch((values) => {
+      try {
+        if (values.content) sessionStorage.setItem(key, values.content);
+        else sessionStorage.removeItem(key);
+      } catch {
+        setDraftError(text('Draft storage is unavailable. Keep this tab open to retain your text.'));
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [conversationId, user?.id, reset, watch, text]);
   useEffect(
     () => () => {
       clearTimeout(typingTimer.current);
@@ -134,7 +129,7 @@ export function MessageComposer({
   });
 
   function submitMessage({ content }: z.output<typeof messageFormSchema>) {
-    if (disabled || sendMessage.isPending || uploading) return;
+    if (disabled || sendMessage.isPending || uploadInFlight.current || voiceActive) return;
     setSubmitError(null);
     typingChanged(false);
     sendMessage.mutate({
@@ -166,20 +161,20 @@ export function MessageComposer({
     });
   }
 
-  async function uploadFile(file: File) {
-    if (disabled || uploading || sendMessage.isPending) return;
-    const type = supportedFiles[file.type];
-    if (!type) {
+  async function uploadFile(file: File): Promise<boolean> {
+    if (disabled || uploadInFlight.current || sendMessage.isPending) return false;
+    if (!MESSAGE_ATTACHMENT_MIME_TYPES.includes(file.type)) {
       setSubmitError(
         text('This file type is not supported. Choose an image, MP4 video, supported audio file, PDF, or text file.'),
       );
-      return;
+      return false;
     }
-    if (file.size < 1 || file.size > MAX_FILE_BYTES) {
+    if (file.size < 1 || file.size > MAX_MESSAGE_ATTACHMENT_BYTES) {
       setSubmitError(text('Files must be between 1 byte and 20 MB'));
-      return;
+      return false;
     }
 
+    uploadInFlight.current = true;
     setUploading(true);
     setSubmitError(null);
     const formData = new FormData();
@@ -192,8 +187,9 @@ export function MessageComposer({
       });
     } catch (uploadError) {
       setSubmitError(toMessage(uploadError, text('Could not send this attachment. Check the chat before retrying.')));
+      uploadInFlight.current = false;
       setUploading(false);
-      return;
+      return false;
     }
 
     onReplyCleared();
@@ -207,8 +203,10 @@ export function MessageComposer({
         }),
       );
     } finally {
+      uploadInFlight.current = false;
       setUploading(false);
     }
+    return true;
   }
 
   async function refreshConversationQueries() {
@@ -252,96 +250,107 @@ export function MessageComposer({
           {text(formState.errors.content.message)}
         </p>
       )}
-      <form
-        className="flex items-end gap-2"
-        onSubmit={(event) => {
-          void handleSubmit(submitMessage)(event);
-        }}
-      >
-        <input
-          accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,audio/mpeg,audio/ogg,audio/wav,application/pdf,text/plain"
-          className="sr-only"
-          disabled={disabled || uploading || sendMessage.isPending}
-          onChange={(event) => {
-            const file = event.currentTarget.files?.[0];
-            event.currentTarget.value = '';
-            if (file) void uploadFile(file);
-          }}
-          ref={fileInput}
-          type="file"
-        />
-        <Button
-          aria-label={text('Attach a file')}
-          disabled={disabled || uploading || sendMessage.isPending}
-          onClick={() => fileInput.current?.click()}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <Paperclip aria-hidden="true" />
-        </Button>
-        <Popover open={emojiOpen && !disabled && !uploading && !sendMessage.isPending} onOpenChange={setEmojiOpen}>
-          <PopoverTrigger
-            render={
-              <Button
-                aria-label={text('Add emoji')}
-                disabled={disabled || uploading || sendMessage.isPending}
-                size="icon"
-                type="button"
-                variant="ghost"
+      <form className="flex items-end gap-2" onSubmit={handleSubmit(submitMessage)}>
+        {!voiceActive && (
+          <>
+            <input
+              accept={MESSAGE_ATTACHMENT_MIME_TYPES.join(',')}
+              className="sr-only"
+              disabled={disabled || uploading || sendMessage.isPending}
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                event.currentTarget.value = '';
+                if (file) void uploadFile(file);
+              }}
+              ref={fileInput}
+              type="file"
+            />
+            <Button
+              aria-label={text('Attach a file')}
+              disabled={disabled || uploading || sendMessage.isPending}
+              onClick={() => fileInput.current?.click()}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <Paperclip aria-hidden="true" />
+            </Button>
+            <Popover open={emojiOpen && !disabled && !uploading && !sendMessage.isPending} onOpenChange={setEmojiOpen}>
+              <PopoverTrigger
+                render={
+                  <Button
+                    aria-label={text('Add emoji')}
+                    disabled={disabled || uploading || sendMessage.isPending}
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Smile aria-hidden="true" />
+                  </Button>
+                }
+              />
+              <PopoverContent
+                finalFocus={inputRef}
+                align="start"
+                side="top"
+                className="w-[min(350px,calc(100vw-2rem))] gap-0 overflow-hidden rounded-2xl p-0"
               >
-                <Smile aria-hidden="true" />
-              </Button>
-            }
-          />
-          <PopoverContent
-            finalFocus={inputRef}
-            align="start"
-            side="top"
-            className="w-[min(350px,calc(100vw-2rem))] gap-0 overflow-hidden rounded-2xl p-0"
-          >
-            <PopoverTitle className="sr-only">{text('Add emoji')}</PopoverTitle>
-            {emojiOpen && <ChatEmojiPicker onEmojiClick={insertEmoji} />}
-          </PopoverContent>
-        </Popover>
-        <Input
-          aria-label={text('Write a message')}
-          aria-invalid={Boolean(formState.errors.content)}
-          aria-describedby={formState.errors.content ? 'message-content-error' : undefined}
-          autoComplete="off"
-          className="h-11 rounded-2xl border border-border/70 bg-background shadow-sm"
+                <PopoverTitle className="sr-only">{text('Add emoji')}</PopoverTitle>
+                {emojiOpen && <ChatEmojiPicker onEmojiClick={insertEmoji} />}
+              </PopoverContent>
+            </Popover>
+            <Input
+              aria-label={text('Write a message')}
+              aria-invalid={Boolean(formState.errors.content)}
+              aria-describedby={formState.errors.content ? 'message-content-error' : undefined}
+              autoComplete="off"
+              className="h-11 rounded-2xl border border-border/70 bg-background shadow-sm"
+              disabled={disabled || uploading || sendMessage.isPending}
+              maxLength={10000}
+              placeholder={uploading ? text('Uploading attachment…') : text('Write a message…')}
+              {...contentRegistration}
+              onChange={(event) => {
+                void contentRegistration.onChange(event);
+                typingChanged(Boolean(event.target.value.trim()));
+              }}
+              onBlur={(event) => {
+                void contentRegistration.onBlur(event);
+                typingChanged(false);
+              }}
+              ref={(node) => {
+                contentRegistration.ref(node);
+                inputRef.current = node;
+              }}
+              onSelect={(event) => {
+                selection.current = {
+                  start: event.currentTarget.selectionStart ?? messageText.length,
+                  end: event.currentTarget.selectionEnd ?? messageText.length,
+                };
+              }}
+            />
+            <Button
+              aria-label={text('Send message')}
+              className="size-11 rounded-full bg-gradient-to-br from-[#087e64] to-[#12a178] text-white shadow-lg shadow-primary/20 hover:brightness-105"
+              disabled={disabled || !draftReady || !messageText || sendMessage.isPending || uploading}
+              size="icon"
+              type="submit"
+            >
+              <Send aria-hidden="true" />
+            </Button>
+          </>
+        )}
+        <VoiceNoteRecorder
           disabled={disabled || uploading || sendMessage.isPending}
-          maxLength={10000}
-          placeholder={uploading ? text('Uploading attachment…') : text('Write a message…')}
-          {...contentRegistration}
-          onChange={(event) => {
-            void contentRegistration.onChange(event);
-            typingChanged(Boolean(event.target.value.trim()));
+          sending={uploading}
+          onActiveChange={(active) => {
+            setVoiceActive(active);
+            if (active) {
+              setEmojiOpen(false);
+              typingChanged(false);
+            }
           }}
-          onBlur={(event) => {
-            void contentRegistration.onBlur(event);
-            typingChanged(false);
-          }}
-          ref={(node) => {
-            contentRegistration.ref(node);
-            inputRef.current = node;
-          }}
-          onSelect={(event) => {
-            selection.current = {
-              start: event.currentTarget.selectionStart ?? messageText.length,
-              end: event.currentTarget.selectionEnd ?? messageText.length,
-            };
-          }}
+          onSend={uploadFile}
         />
-        <Button
-          aria-label={text('Send message')}
-          className="size-11 rounded-full bg-gradient-to-br from-[#087e64] to-[#12a178] text-white shadow-lg shadow-primary/20 hover:brightness-105"
-          disabled={disabled || !draftReady || !messageText || sendMessage.isPending || uploading}
-          size="icon"
-          type="submit"
-        >
-          <Send aria-hidden="true" />
-        </Button>
       </form>
     </div>
   );

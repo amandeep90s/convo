@@ -24,6 +24,10 @@ import {
   ApiProduces,
   ApiTags,
 } from '@nestjs/swagger';
+import {
+  MAX_MESSAGE_ATTACHMENT_BYTES,
+  MESSAGE_ATTACHMENT_MIME_TYPES,
+} from '@repo/shared';
 import type { Response } from 'express';
 
 import {
@@ -71,7 +75,7 @@ export class MessageAttachmentsController {
   })
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 20 * 1024 * 1024, files: 1 },
+      limits: { fileSize: MAX_MESSAGE_ATTACHMENT_BYTES, files: 1 },
     }),
   )
   @ResponseMessage('Attachment message sent')
@@ -102,21 +106,9 @@ export class MessageAttachmentsController {
   })
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 20 * 1024 * 1024, files: 1 },
+      limits: { fileSize: MAX_MESSAGE_ATTACHMENT_BYTES, files: 1 },
       fileFilter: (_request, file, callback) => {
-        const supported = new Set([
-          'image/jpeg',
-          'image/png',
-          'image/gif',
-          'image/webp',
-          'video/mp4',
-          'audio/mpeg',
-          'audio/ogg',
-          'audio/wav',
-          'application/pdf',
-          'text/plain',
-        ]);
-        if (!supported.has(file.mimetype)) {
+        if (!MESSAGE_ATTACHMENT_MIME_TYPES.includes(file.mimetype)) {
           callback(new BadRequestException('Unsupported file type'), false);
           return;
         }
