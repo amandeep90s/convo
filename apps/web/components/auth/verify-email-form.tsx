@@ -78,7 +78,7 @@ export function VerifyEmailForm({ initialToken = '' }: { initialToken?: string }
       }
     >
       <form className="flex flex-col gap-4" onSubmit={verifyForm.handleSubmit(verify)}>
-        <div className="flex flex-col gap-2">
+        <div className="hidden flex-col gap-2">
           <Label htmlFor="token">{text('Verification token')}</Label>
           <Input
             autoComplete="one-time-code"
