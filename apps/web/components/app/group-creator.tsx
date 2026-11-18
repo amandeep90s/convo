@@ -30,6 +30,7 @@ export function GroupCreator() {
   const createGroup = useMutation({
     mutationFn: (body: CreateGroupDto) => apiRequest<{ conversation_id: string }>('groups', { method: 'POST', body }),
     onSuccess: async ({ conversation_id }) => {
+      setIsOpen(false);
       await queryClient.invalidateQueries({ queryKey: ['conversations'] });
       router.push(`/chat/${conversation_id}`);
     },
@@ -48,7 +49,7 @@ export function GroupCreator() {
         {isOpen ? text('Cancel') : text('New group')}
       </Button>
       {isOpen && (
-        <Card className="absolute top-full right-0 z-10 mt-2 w-[min(85vw,20rem)] shadow-lg">
+        <Card className="absolute top-full right-0 z-20 mt-2 w-[min(85vw,20rem)] shadow-lg">
           <CardContent>
             <form className="flex flex-col gap-4" onSubmit={form.handleSubmit(submit)}>
               <div className="flex items-center gap-2 font-medium">

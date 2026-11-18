@@ -1,13 +1,14 @@
 'use client';
 
-import type { ChatMessage, ChatMessagePage, ChatParticipant, ChatPinnedMessage, MessagePreview } from '@repo/shared';
+import type { ChatConversation, ChatMessage, ChatMessagePage, ChatPinnedMessage, MessagePreview } from '@repo/shared';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowLeft, Check, CheckCheck, Pin, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowLeft, Check, CheckCheck, Pin, Settings2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
 import { Fragment, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { useChatActivity } from '@/components/app/chat-activity';
+import { ConversationPreferences } from '@/components/app/conversation-preferences';
 import { DeleteChatDialog } from '@/components/app/delete-chat-dialog';
 import { MemberManager } from '@/components/app/member-manager';
 import { MessageActions } from '@/components/app/message-actions';
@@ -20,16 +21,9 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useUiText } from '@/i18n/ui-text';
-import { apiRequest } from '@/lib/client/api';
+import { ApiError, apiRequest } from '@/lib/client/api';
 import { useCurrentUser } from '@/lib/client/use-current-user';
-
-type Conversation = {
-  id: string;
-  name: string | null;
-  type: string;
-  group: { name: string; description: string | null } | null;
-  members: Array<{ user_id: string; role: string; last_read_message_id?: string | null; user: ChatParticipant }>;
-};
+import { useMessageExpiry } from '@/lib/client/use-message-expiry';
 
 export function ConversationView({ conversationId }: { conversationId: string }) {
   return <ConversationContent key={conversationId} conversationId={conversationId} />;
@@ -45,6 +39,7 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
   const [deletingChat, setDeletingChat] = useState(false);
   const [reply, setReply] = useState<MessagePreview | null>(null);
   const [showPins, setShowPins] = useState(false);
+  const [showPreferences, setShowPreferences] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [showLatest, setShowLatest] = useState(false);
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set());
@@ -66,7 +61,7 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
 
   const conversation = useQuery({
     queryKey: ['conversation', conversationId],
-    queryFn: () => apiRequest<Conversation>(`conversations/${conversationId}`),
+    queryFn: () => apiRequest<ChatConversation>(`conversations/${conversationId}`),
     retry: false,
     refetchInterval: 30000,
   });
@@ -82,7 +77,7 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
     refetchInterval: 10000,
     retry: false,
   });
-  const orderedMessages = useMemo(
+  const allMessages = useMemo(
     () =>
       [
         ...new Map(messages.data?.pages.flatMap((page) => page.items).map((message) => [message.id, message])).values(),
@@ -105,6 +100,22 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
     retry: false,
     refetchInterval: 10000,
   });
+  const expiry = useMessageExpiry([
+    ...allMessages.flatMap((message) => [message.expires_at, message.reply?.expires_at]),
+    ...(pins.data?.map((pin) => pin.message.expires_at) ?? []),
+    preview.data?.expires_at,
+  ]);
+  const orderedMessages = useMemo(
+    () =>
+      allMessages.filter(
+        (message) => !message.expires_at || Date.parse(message.expires_at) > Math.max(expiry.now, Date.now()),
+      ),
+    [allMessages, expiry.now],
+  );
+  const visiblePins = pins.data?.filter(
+    (pin) => !pin.message.expires_at || Date.parse(pin.message.expires_at) > expiry.now,
+  );
+  const visiblePreview = preview.data && (!preview.data.expires_at || Date.parse(preview.data.expires_at) > expiry.now);
   function revealMessage(id: string) {
     const element = document.getElementById(`message-${id}`);
     if (element && messageViewport.current?.contains(element)) {
@@ -181,6 +192,7 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
           updated = true;
           setReceiptError(null);
         } catch (reason) {
+          if (reason instanceof ApiError && reason.status === 404) continue;
           acknowledged.current.delete(`${currentUser.id}:${message.id}`);
           setReceiptError(reason instanceof Error ? reason.message : text('Could not mark messages as read.'));
         }
@@ -201,6 +213,7 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
     ({ user_id, role }) => user_id === currentUser?.id && role === 'admin',
   );
   const title =
+    (conversation.data?.is_saved ? text('Saved Messages') : null) ||
     conversation.data?.group?.name ||
     conversation.data?.name ||
     otherMember?.name ||
@@ -217,6 +230,13 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background">
       {deletingChat && <DeleteChatDialog conversationId={conversationId} onClose={() => setDeletingChat(false)} />}
+      {showPreferences && conversation.data && currentUser && (
+        <ConversationPreferences
+          conversation={conversation.data}
+          userId={currentUser.id}
+          onClose={() => setShowPreferences(false)}
+        />
+      )}
       <header className="flex items-center gap-3 border-b bg-muted/50 px-4 py-3 md:px-6">
         <Button
           aria-label={text('Back to conversations')}
@@ -242,7 +262,11 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
           {conversation.data?.type === 'private' ? (
             <div className="flex items-center gap-2">
               <span className="truncate text-xs text-muted-foreground">
-                {otherMember ? `@${otherMember.username}` : ''}
+                {conversation.data.is_saved
+                  ? text('Only you can access this chat.')
+                  : otherMember
+                    ? `@${otherMember.username}`
+                    : ''}
               </span>
             </div>
           ) : (
@@ -258,13 +282,22 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
           )}
         </div>
         <Button
+          aria-label={text('Chat preferences')}
+          size="icon-sm"
+          variant="ghost"
+          disabled={!conversation.data || !currentUser}
+          onClick={() => setShowPreferences(true)}
+        >
+          <Settings2 aria-hidden="true" />
+        </Button>
+        <Button
           aria-label={text('Pinned messages')}
           size="icon-sm"
           variant="ghost"
           onClick={() => setShowPins((value) => !value)}
         >
           <Pin aria-hidden="true" />
-          {pins.data && pins.data.length > 0 && <span className="text-xs">{pins.data.length}</span>}
+          {visiblePins && visiblePins.length > 0 && <span className="text-xs">{visiblePins.length}</span>}
         </Button>
         {(conversation.data?.type === 'private' || isAdmin) && (
           <Button aria-label={text('Delete chat')} size="icon-sm" variant="ghost" onClick={() => setDeletingChat(true)}>
@@ -272,6 +305,18 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
           </Button>
         )}
       </header>
+      {expiry.error && (
+        <p role="alert" className="px-4 py-2 text-xs text-destructive">
+          {text(expiry.error)}
+        </p>
+      )}
+      {conversation.data?.disappearing_message_ttl_seconds && (
+        <p className="border-b bg-primary/5 px-5 py-2 text-xs text-primary">
+          {text('Disappearing messages are on. New messages expire after {seconds} seconds.', {
+            seconds: conversation.data.disappearing_message_ttl_seconds,
+          })}
+        </p>
+      )}
       {typingNames.length > 0 && (
         <p role="status" className="border-b px-5 py-1 text-xs text-primary">
           {text('{name} is typing…', { name: typingNames.join(', ') })}
@@ -289,8 +334,8 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
               {text(pins.error.message)}
             </p>
           )}
-          {pins.data?.length === 0 && <p className="text-xs">{text('No pinned messages.')}</p>}
-          {pins.data?.map((pin) => (
+          {visiblePins?.length === 0 && <p className="text-xs">{text('No pinned messages.')}</p>}
+          {visiblePins?.map((pin) => (
             <button
               key={pin.message_id}
               type="button"
@@ -376,7 +421,8 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
                     >
                       {!isOwn && <p className="mb-1 text-xs font-medium">{message.sender.name}</p>}
                       {message.reply_to_id &&
-                        (message.reply ? (
+                        (message.reply &&
+                        (!message.reply.expires_at || Date.parse(message.reply.expires_at) > expiry.now) ? (
                           <button
                             type="button"
                             className="mb-2 block w-full rounded-md border-l-4 border-primary bg-black/5 p-2 text-left text-xs"
@@ -493,7 +539,8 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
               {text(preview.error.message)}
             </p>
           )}
-          {preview.data && !preview.isError && (
+          {preview.data && !visiblePreview && <p>{text('Original message unavailable')}</p>}
+          {preview.data && visiblePreview && !preview.isError && (
             <div className="min-w-0">
               <p className="font-medium">{preview.data.sender.name}</p>
               <p className="text-sm break-words whitespace-pre-wrap">
@@ -534,6 +581,9 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
         <MessageComposer
           key={`${conversationId}:${currentUser?.id ?? ''}`}
           conversationId={conversationId}
+          mentionMembers={
+            conversation.data?.type !== 'private' ? conversation.data?.members.map((member) => member.user) : undefined
+          }
           disabled={conversation.isError || conversation.isPending}
           reply={reply}
           onReplyCleared={() => setReply(null)}

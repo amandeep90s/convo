@@ -12,7 +12,7 @@ import type {
   SearchMessagesParams,
   UpdateMessageDto,
 } from '@repo/shared';
-import { MESSAGE_EDIT_WINDOW_MS } from '@repo/shared';
+import { isUsernameMentioned, MESSAGE_EDIT_WINDOW_MS } from '@repo/shared';
 
 import { removeMessageFiles } from '@/common/message-files';
 import { ConversationAccessService } from '@/common/providers/conversation-access.service';
@@ -253,6 +253,7 @@ export class MessagesService {
             id: true,
             type: true,
             content: true,
+            expires_at: true,
             sender: { select: { id: true, name: true } },
           },
         })
@@ -293,7 +294,11 @@ export class MessagesService {
     for (const member of conversation.members) {
       if (
         member.user.settings?.notification_enabled !== false &&
-        member.notification_policy === 'all' &&
+        (member.notification_policy === 'all' ||
+          (member.notification_policy === 'mentions_only' &&
+            conversation.type !== 'private' &&
+            data.type === 'text' &&
+            isUsernameMentioned(data.content ?? '', member.user.username))) &&
         (!member.muted_until || member.muted_until <= new Date())
       ) {
         this.realtime.emitUserEvent(
@@ -333,6 +338,7 @@ export class MessagesService {
             notification_policy: true,
             user: {
               select: {
+                username: true,
                 settings: { select: { notification_enabled: true } },
               },
             },
@@ -369,6 +375,25 @@ export class MessagesService {
         data: { updated_at: new Date() },
       });
       if (!active.count) throw new NotFoundException('Conversation not found');
+      const settings = await transaction.conversation.findUniqueOrThrow({
+        where: { id: data.conversation_id },
+        select: { disappearing_message_ttl_seconds: true },
+      });
+      const now = new Date();
+      const ttl = settings.disappearing_message_ttl_seconds;
+      const conversationExpiry = ttl
+        ? new Date(now.getTime() + ttl * 1000)
+        : undefined;
+      const expiresAt =
+        data.expires_at &&
+        (!conversationExpiry || data.expires_at < conversationExpiry)
+          ? data.expires_at
+          : conversationExpiry;
+      if (expiresAt && expiresAt <= now) {
+        throw new BadRequestException(
+          'Message expiration must be in the future',
+        );
+      }
       const created = await transaction.message.create({
         data: {
           conversation_id: data.conversation_id,
@@ -377,7 +402,7 @@ export class MessagesService {
           type: data.type,
           content: data.content,
           metadata: data.metadata,
-          expires_at: data.expires_at,
+          expires_at: expiresAt,
           ...(attachment ? { attachments: { create: attachment } } : {}),
         },
         include: {

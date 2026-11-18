@@ -10,6 +10,7 @@ export type ChatParticipant = Pick<TUser, 'id' | 'name' | 'username' | 'avatar_u
 };
 
 export type ConversationListItem = Pick<TConversation, 'id' | 'name' | 'type'> & {
+  is_saved: boolean;
   last_message_at: string | null;
   unread_count: number;
   members: Array<{
@@ -19,7 +20,20 @@ export type ConversationListItem = Pick<TConversation, 'id' | 'name' | 'type'> &
     starred_at: string | null;
     user: ChatParticipant;
   }>;
-  messages: Array<Pick<TMessage, 'id' | 'type' | 'content'> & { created_at: string }>;
+  messages: Array<Pick<TMessage, 'id' | 'type' | 'content'> & { created_at: string; expires_at: string | null }>;
+};
+
+export type ChatConversation = Pick<TConversation, 'id' | 'name' | 'type' | 'disappearing_message_ttl_seconds'> & {
+  is_saved: boolean;
+  group: { name: string; description: string | null } | null;
+  members: Array<{
+    user_id: string;
+    role: TConversationMember['role'];
+    last_read_message_id?: string | null;
+    notification_policy: TConversationMember['notification_policy'];
+    muted_until: string | null;
+    user: ChatParticipant;
+  }>;
 };
 
 export type ConversationListResponse = {

@@ -63,6 +63,9 @@ export class ConversationsService {
       this.prisma.conversation.findMany({
         where,
         include: {
+          private_conversation: {
+            select: { user_a_id: true, user_b_id: true },
+          },
           members: {
             where: { left_at: null },
             select: {
@@ -94,6 +97,7 @@ export class ConversationsService {
               type: true,
               content: true,
               created_at: true,
+              expires_at: true,
             },
           },
         },
@@ -152,6 +156,11 @@ export class ConversationsService {
     return {
       data: data.map((conversation) => ({
         ...conversation,
+        is_saved: Boolean(
+          conversation.private_conversation &&
+          conversation.private_conversation.user_a_id ===
+            conversation.private_conversation.user_b_id,
+        ),
         unread_count: unreadCounts.get(conversation.id) ?? 0,
         members: conversation.members.map((member) => ({
           ...member,
@@ -200,6 +209,11 @@ export class ConversationsService {
     );
     return {
       ...conversation,
+      is_saved: Boolean(
+        conversation.private_conversation &&
+        conversation.private_conversation.user_a_id ===
+          conversation.private_conversation.user_b_id,
+      ),
       members: conversation.members.map((member) => ({
         ...member,
         user: {
@@ -215,11 +229,30 @@ export class ConversationsService {
     conversationId: string,
     data: UpdateConversationDto,
   ) {
-    await this.access.requireAdmin(conversationId, userId);
-    return this.prisma.conversation.update({
+    const membership = await this.access.requireMember(conversationId, userId);
+    const conversation = await this.prisma.conversation.findUniqueOrThrow({
+      where: { id: conversationId },
+      select: { type: true },
+    });
+    if (
+      membership.role !== 'admin' &&
+      (conversation.type !== 'private' ||
+        Object.keys(data).some(
+          (key) => key !== 'disappearing_message_ttl_seconds',
+        ))
+    ) {
+      throw new ForbiddenException('Conversation admin permission is required');
+    }
+    const updated = await this.prisma.conversation.update({
       where: { id: conversationId },
       data,
     });
+    await this.realtime.emitConversationEvent(
+      conversationId,
+      'conversation:updated',
+      {},
+    );
+    return updated;
   }
 
   async leave(userId: string, conversationId: string) {

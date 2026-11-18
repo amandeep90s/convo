@@ -4,6 +4,7 @@ import type { TypingInput } from '../schemas/message.js';
 
 export type RealtimeSession = { token: string; url: string };
 export type RealtimeMessage = Pick<TMessage, 'id' | 'conversation_id' | 'sender_id' | 'type' | 'content'> & {
+  expires_at?: string | null;
   sender: Pick<TUser, 'id' | 'name'>;
 };
 export type ConversationEvent = { conversation_id: string };

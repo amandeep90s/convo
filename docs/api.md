@@ -48,11 +48,12 @@ Successful verification returns an `accessToken`, `refreshToken`, `expiresAt`, a
 | Method | Route | Purpose |
 | --- | --- | --- |
 | GET | `/conversations?page=&limit=&q=&archived=&starred=` | List active memberships with last-message previews; server-side name/participant search and optional `true` filters |
-| GET / PATCH / DELETE | `/conversations/:conversationId` | Read, admin-update, or leave a conversation (private chats are archived) |
+| GET / PATCH / DELETE | `/conversations/:conversationId` | Read, update, or leave a conversation (private chats are archived); either private participant may change the disappearing timer, other updates require an admin |
 | DELETE | `/conversations/:conversationId/everyone` | Remove the chat and all history for everyone; private participants or group admins only |
 | POST / DELETE | `/conversations/:conversationId/archive` | Archive or unarchive the current membership |
 | POST / DELETE | `/conversations/:conversationId/star` | Star or unstar the current membership |
 | POST / GET | `/private-conversations` and `/private-conversations/:conversationId` | Create or read a one-to-one conversation |
+| POST | `/private-conversations/saved` | Open or create the authenticated user's Saved Messages chat |
 | GET / POST | `/groups` | List or create groups |
 | GET / PATCH / DELETE | `/groups/:conversationId` | Read, update, or remove a group |
 | GET / POST | `/communities` | List or create communities |
@@ -61,6 +62,12 @@ Successful verification returns an `accessToken`, `refreshToken`, `expiresAt`, a
 | PATCH / DELETE | `/conversation-members/:conversationId/:userId` | Update or remove a member |
 
 Group/community creation makes the creator an admin. Membership and admin checks are enforced at the API boundary.
+
+Saved Messages is a private conversation with exactly one member and a self-pair in the existing unique private-pair mapping. Concurrent opens resolve to the same conversation. It accepts text, attachments, voice notes, replies and pins using the normal message endpoints; it does not copy other people's messages automatically. Opening it restores the owner's membership and unarchives it. Other accounts cannot read it or add members. Conversation lists and details include `is_saved` for its localized title. Deleting this chat uses normal whole-chat deletion; opening Saved Messages again starts an empty chat. No new migration is needed.
+
+The chat-preferences dialog offers Off, 24-hour, 7-day and 90-day disappearing-message timers. Group/community admins and either private-chat participant may update `disappearing_message_ttl_seconds` (null disables it). Changes emit `conversation:updated` and affect only messages sent afterward. The API reads the timer inside the message transaction after locking the conversation and applies it to text and attachment sends. An explicit `expires_at` can shorten, but cannot extend, the conversation timer. Expired messages and attachments become inaccessible through the existing visibility rules; this feature is not a physical purge of database records, stored files, backups, or downloaded copies. Clients remove loaded expired messages, pins, replies, previews and notifications, and refresh conversation previews.
+
+Chat notification preferences persist through `PATCH /conversation-members/:conversationId/:userId` using `notification_policy: "all" | "mentions_only" | "none"`. Group composers provide a searchable @member picker. Mentions are matched case-insensitively against active recipient usernames in the conversation, with token boundaries and escaped punctuation, for text sends only. `mentions_only` recipients receive alerts only when mentioned; `none`, an active `muted_until`, and disabled account notifications suppress alerts. Mentions never bypass membership, blocks, account notification settings, or a timed mute. Editing a message does not send new mention alerts. Unread counts and message delivery are unchanged by notification preferences.
 
 Conversation search `q` is trimmed and limited to 100 characters. It matches conversation names or other active participants' names/usernames case-insensitively, within the current membership/archive/star filters. Pagination returns `data`, `page`, `limit`, `total`, and `totalPages`, ordered by latest-message time (empty chats last), creation time, then ID. The web client loads additional pages rather than limiting access to the first 50 conversations.
 

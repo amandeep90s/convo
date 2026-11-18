@@ -27,6 +27,13 @@ export class PrivateConversationsController {
     private readonly privateConversationsService: PrivateConversationsService,
   ) {}
 
+  @Post('saved')
+  @ResponseMessage('Saved messages opened')
+  @ApiCreatedEndpoint('Open your private Saved Messages conversation')
+  saved(@CurrentUser() user: AuthenticatedUser) {
+    return this.privateConversationsService.saved(user.id);
+  }
+
   @Post()
   @ResponseMessage('Private conversation created')
   @ApiCreatedEndpoint('Create or retrieve a private conversation')

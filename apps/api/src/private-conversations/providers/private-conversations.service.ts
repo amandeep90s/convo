@@ -27,13 +27,41 @@ export class PrivateConversationsService {
       select: { id: true },
     });
     if (!participant) throw new NotFoundException('User not found');
+    return this.openPair(userId, participantId);
+  }
+
+  async saved(userId: string) {
+    return this.openPair(userId, userId);
+  }
+
+  private async getPair(
+    userId: string,
+    participantId: string,
+    conversationId: string,
+  ) {
+    if (userId === participantId) {
+      await this.prisma.conversationMember.update({
+        where: {
+          conversation_id_user_id: {
+            conversation_id: conversationId,
+            user_id: userId,
+          },
+        },
+        data: { left_at: null, archived_at: null },
+      });
+    }
+    return this.get(userId, conversationId);
+  }
+
+  private async openPair(userId: string, participantId: string) {
     const [userA, userB] = [userId, participantId].sort();
     const pairKey = `${userA}:${userB}`;
     const existing = await this.prisma.privateConversation.findUnique({
       where: { pair_key: pairKey },
       select: { conversation_id: true },
     });
-    if (existing) return this.get(userId, existing.conversation_id);
+    if (existing)
+      return this.getPair(userId, participantId, existing.conversation_id);
 
     const conversationId = randomUUID();
     try {
@@ -42,11 +70,14 @@ export class PrivateConversationsService {
           data: {
             id: conversationId,
             type: 'private',
+            ...(userId === participantId ? { name: 'Saved Messages' } : {}),
             created_by: userId,
             members: {
               create: [
                 { user_id: userId, role: 'admin' },
-                { user_id: participantId, role: 'member' },
+                ...(participantId === userId
+                  ? []
+                  : [{ user_id: participantId, role: 'member' as const }]),
               ],
             },
           },
@@ -67,14 +98,14 @@ export class PrivateConversationsService {
         select: { conversation_id: true },
       });
       if (!winner) throw error;
-      return this.get(userId, winner.conversation_id);
+      return this.getPair(userId, participantId, winner.conversation_id);
     }
     await this.realtime.emitConversationEvent(
       conversationId,
       'conversation:updated',
       {},
     );
-    return this.get(userId, conversationId);
+    return this.getPair(userId, participantId, conversationId);
   }
 
   async get(userId: string, conversationId: string) {

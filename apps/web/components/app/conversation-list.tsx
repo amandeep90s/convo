@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { DeleteChatDialog } from '@/components/app/delete-chat-dialog';
 import { GroupCreator } from '@/components/app/group-creator';
 import { PresenceStatus } from '@/components/app/presence-status';
+import { SavedMessagesButton } from '@/components/app/saved-messages-button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { useUiText } from '@/i18n/ui-text';
 import { ApiError, apiRequest } from '@/lib/client/api';
 import { useCurrentUser } from '@/lib/client/use-current-user';
+import { useMessageExpiry } from '@/lib/client/use-message-expiry';
 
 type ConversationMode = 'recent' | 'archived' | 'starred';
 
@@ -80,6 +82,7 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
       query.data?.pages.flatMap((page) => page.data).map((conversation) => [conversation.id, conversation]),
     ).values(),
   ];
+  const expiry = useMessageExpiry(conversations.map((conversation) => conversation.messages[0]?.expires_at));
 
   async function updateConversation(id: string, action: 'archive' | 'restore' | 'star' | 'unstar') {
     setActionId(id);
@@ -107,6 +110,7 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
         </div>
         {mode === 'recent' && (
           <div className="flex flex-wrap gap-2">
+            <SavedMessagesButton />
             <Button
               aria-label={text('New conversation')}
               nativeButton={false}
@@ -135,12 +139,12 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
         />
       </div>
 
-      {error && (
+      {(error || expiry.error) && (
         <p
           className="mx-5 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
           role="alert"
         >
-          {text(error)}
+          {text(error || expiry.error || '')}
         </p>
       )}
       {deletingChat && <DeleteChatDialog conversationId={deletingChat} onClose={() => setDeletingChat(null)} />}
@@ -170,10 +174,12 @@ export function ConversationList({ mode }: { mode: ConversationMode }) {
               ? conversation.members.find((member) => member.user_id !== user.id)?.user
               : undefined;
             const title =
+              (conversation.is_saved ? text('Saved Messages') : null) ||
               conversation.name ||
               participant?.name ||
               (conversation.type === 'private' ? text('Direct message') : text('Group conversation'));
-            const message = conversation.messages[0];
+            const latest = conversation.messages[0];
+            const message = latest?.expires_at && Date.parse(latest.expires_at) <= expiry.now ? undefined : latest;
             const starred = Boolean(ownMembership?.starred_at);
             const archived = Boolean(ownMembership?.archived_at);
             return (

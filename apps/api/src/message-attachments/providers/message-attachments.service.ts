@@ -85,7 +85,12 @@ export class MessageAttachmentsService {
 
   async upload(userId: string, messageId: string, file: UploadedMessageFile) {
     const message = await this.prisma.message.findFirst({
-      where: { id: messageId, deleted_at: null },
+      where: {
+        id: messageId,
+        deleted_at: null,
+        hidden_for: { none: { user_id: userId } },
+        OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
+      },
       select: { id: true, sender_id: true, conversation_id: true },
     });
     if (!message) throw new NotFoundException('Message not found');
@@ -107,6 +112,8 @@ export class MessageAttachmentsService {
           where: {
             id: messageId,
             deleted_at: null,
+            hidden_for: { none: { user_id: userId } },
+            OR: [{ expires_at: null }, { expires_at: { gt: new Date() } }],
             conversation: { deleted_at: null },
           },
           select: { id: true },

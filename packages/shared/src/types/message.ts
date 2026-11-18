@@ -4,6 +4,7 @@ import type { TUser } from './user.js';
 
 export type MessagePreview = Pick<TMessage, 'id' | 'type'> & {
   content: string | null;
+  expires_at?: string | null;
   sender: Pick<TUser, 'id' | 'name'>;
 };
 

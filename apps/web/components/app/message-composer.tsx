@@ -2,6 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
+  type ChatParticipant,
   type CreateMessageDto,
   createMessageSchema,
   MAX_MESSAGE_ATTACHMENT_BYTES,
@@ -10,7 +11,7 @@ import {
 } from '@repo/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { EmojiClickData } from 'emoji-picker-react';
-import { Paperclip, Send, Smile, X } from 'lucide-react';
+import { AtSign, Paperclip, Send, Smile, X } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
@@ -36,11 +37,13 @@ export function MessageComposer({
   disabled: unavailable = false,
   reply,
   onReplyCleared,
+  mentionMembers = [],
 }: {
   conversationId: string;
   disabled?: boolean;
   reply: MessagePreview | null;
   onReplyCleared: () => void;
+  mentionMembers?: ChatParticipant[];
 }) {
   const text = useUiText();
   const queryClient = useQueryClient();
@@ -54,6 +57,8 @@ export function MessageComposer({
   const inputRef = useRef<HTMLInputElement>(null);
   const selection = useRef<{ start: number; end: number } | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState('');
   const { control, register, handleSubmit, reset, watch, formState, getValues, setValue, setError } = useForm<
     z.input<typeof messageFormSchema>,
     unknown,
@@ -63,6 +68,10 @@ export function MessageComposer({
     defaultValues: { content: '' },
   });
   const messageText = useWatch({ control, name: 'content' }) ?? '';
+  const matchingMentionMembers = mentionMembers.filter(
+    (member) =>
+      member.id !== user?.id && `${member.name} ${member.username}`.toLowerCase().includes(mentionSearch.toLowerCase()),
+  );
   const contentRegistration = register('content');
   const [uploading, setUploading] = useState(false);
   const [voiceActive, setVoiceActive] = useState(false);
@@ -141,20 +150,26 @@ export function MessageComposer({
   }
 
   function insertEmoji({ emoji }: EmojiClickData) {
+    insertText(emoji);
+  }
+
+  function insertText(inserted: string) {
     if (disabled || uploading || sendMessage.isPending) return;
     const current = getValues('content');
     const start = selection.current?.start ?? current.length;
     const end = selection.current?.end ?? start;
-    const value = current.slice(0, start) + emoji + current.slice(end);
+    const value = current.slice(0, start) + inserted + current.slice(end);
     if (value.length > 10000) {
       setError('content', { type: 'maxLength', message: text('Messages must be 10,000 characters or fewer.') });
       return;
     }
     setValue('content', value, { shouldDirty: true, shouldValidate: true });
     typingChanged(true);
-    const cursor = start + emoji.length;
+    const cursor = start + inserted.length;
     selection.current = { start: cursor, end: cursor };
     setEmojiOpen(false);
+    setMentionOpen(false);
+    setMentionSearch('');
     requestAnimationFrame(() => {
       inputRef.current?.focus();
       inputRef.current?.setSelectionRange(cursor, cursor);
@@ -253,6 +268,57 @@ export function MessageComposer({
       <form className="flex items-end gap-2" onSubmit={handleSubmit(submitMessage)}>
         {!voiceActive && (
           <>
+            {mentionMembers.some((member) => member.id !== user?.id) && (
+              <Popover
+                open={mentionOpen && !disabled && !uploading && !sendMessage.isPending}
+                onOpenChange={setMentionOpen}
+              >
+                <PopoverTrigger
+                  render={
+                    <Button
+                      aria-label={text('Mention a member')}
+                      size="icon"
+                      type="button"
+                      variant="ghost"
+                      disabled={disabled || uploading || sendMessage.isPending}
+                    >
+                      <AtSign aria-hidden="true" />
+                    </Button>
+                  }
+                />
+                <PopoverContent finalFocus={inputRef} align="start" side="top" className="w-72 rounded-2xl">
+                  <PopoverTitle>{text('Mention a member')}</PopoverTitle>
+                  <Input
+                    aria-label={text('Search members')}
+                    placeholder={text('Search members')}
+                    value={mentionSearch}
+                    onChange={(event) => setMentionSearch(event.target.value)}
+                  />
+                  <div className="max-h-52 overflow-y-auto">
+                    {matchingMentionMembers.length === 0 && (
+                      <p className="p-3 text-xs text-muted-foreground">{text('No people match that search.')}</p>
+                    )}
+                    {matchingMentionMembers.map((member) => (
+                      <button
+                        key={member.id}
+                        type="button"
+                        className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-muted"
+                        onClick={() => {
+                          const current = getValues('content');
+                          const start = selection.current?.start ?? current.length;
+                          insertText(
+                            `${start > 0 && !/\s/.test(current[start - 1] ?? '') ? ' ' : ''}@${member.username} `,
+                          );
+                        }}
+                      >
+                        <span className="block font-medium">{member.name}</span>
+                        <span className="text-xs text-muted-foreground">@{member.username}</span>
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
             <input
               accept={MESSAGE_ATTACHMENT_MIME_TYPES.join(',')}
               className="sr-only"

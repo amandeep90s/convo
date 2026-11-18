@@ -58,6 +58,7 @@ export function RealtimeUpdates({
     const seenNotifications = new Set<string>();
     const pendingNotifications = new Map<string, RealtimeMessage>();
     const browserNotifications = new Map<string, Notification>();
+    const expirationTimers = new Map<string, ReturnType<typeof setTimeout>>();
     const pendingConversations = new Set<string>();
     let reconciling = false;
 
@@ -81,10 +82,27 @@ export function RealtimeUpdates({
       );
       for (const [id, message] of activeNotifications.current) {
         if (event.id ? id === event.id : message.conversation_id === event.conversation_id) {
+          clearTimeout(expirationTimers.get(id));
+          expirationTimers.delete(id);
           browserNotifications.get(id)?.close();
           browserNotifications.delete(id);
           activeNotifications.current.delete(id);
         }
+      }
+    }
+
+    function expireNotification(message: RealtimeMessage) {
+      clearTimeout(expirationTimers.get(message.id));
+      expirationTimers.delete(message.id);
+      if (!message.expires_at) return;
+      const remaining = Date.parse(message.expires_at) - Date.now();
+      if (remaining <= 0) {
+        removeNotification(message);
+      } else {
+        expirationTimers.set(
+          message.id,
+          setTimeout(() => expireNotification(message), Math.min(remaining, 2147483647)),
+        );
       }
     }
 
@@ -96,7 +114,10 @@ export function RealtimeUpdates({
           [...activeNotifications.current.values()].map(async (message) => {
             try {
               const current = await apiRequest<RealtimeMessage>(`messages/${message.id}`);
-              if (!disposed && current.content !== message.content) removeNotification(message);
+              if (!disposed) {
+                if (current.content !== message.content) removeNotification(message);
+                else expireNotification(current);
+              }
             } catch (reason) {
               if (disposed) return;
               if (reason instanceof ApiError && (reason.status === 404 || reason.status === 403)) {
@@ -259,6 +280,7 @@ export function RealtimeUpdates({
         throw reason;
       }
       if (disposed || !pendingNotifications.has(message.id)) return;
+      if (message.expires_at && Date.parse(message.expires_at) <= Date.now()) return;
       const settings = queryClient.getQueryData<TUserSettings>(['user-settings']);
       if (settings?.notification_enabled === false) return;
       const viewingChat =
@@ -269,6 +291,8 @@ export function RealtimeUpdates({
         const oldestId = activeNotifications.current.keys().next().value;
         if (oldestId) {
           browserNotifications.get(oldestId)?.close();
+          clearTimeout(expirationTimers.get(oldestId));
+          expirationTimers.delete(oldestId);
           browserNotifications.delete(oldestId);
           activeNotifications.current.delete(oldestId);
         }
@@ -302,6 +326,7 @@ export function RealtimeUpdates({
           reportError(reason);
         }
       }
+      expireNotification(message);
     }
     void connect();
     const reconciliationTimer = setInterval(() => void reconcileNotifications(), 30000);
@@ -317,6 +342,7 @@ export function RealtimeUpdates({
       clearTimeout(refreshTimer);
       setSocket(null);
       clearInterval(reconciliationTimer);
+      for (const timer of expirationTimers.values()) clearTimeout(timer);
       document.removeEventListener('visibilitychange', reconcileVisible);
       window.removeEventListener('online', reconcileVisible);
       for (const alert of browserNotifications.values()) alert.close();
