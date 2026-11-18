@@ -40,7 +40,7 @@ export function MessageAudio({ attachmentId }: { attachmentId: string }) {
       const objectUrl = URL.createObjectURL(blob);
       audioUrl.current = objectUrl;
       setSource(objectUrl);
-    } catch (error) {
+    } catch {
       if (!controller.signal.aborted) setFailed(true);
     } finally {
       if (!controller.signal.aborted) setLoading(false);

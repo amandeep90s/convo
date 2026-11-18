@@ -13,7 +13,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { EmojiClickData } from 'emoji-picker-react';
 import { AtSign, Paperclip, Send, Smile, X } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useEffect, useRef, useState } from 'react';
+import { type SubmitEvent, useEffect, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -59,7 +59,7 @@ export function MessageComposer({
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionSearch, setMentionSearch] = useState('');
-  const { control, register, handleSubmit, reset, watch, formState, getValues, setValue, setError } = useForm<
+  const { control, register, handleSubmit, reset, subscribe, formState, getValues, setValue, setError } = useForm<
     z.input<typeof messageFormSchema>,
     unknown,
     z.output<typeof messageFormSchema>
@@ -78,7 +78,7 @@ export function MessageComposer({
   const uploadInFlight = useRef(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   useEffect(() => {
-    if (reply) inputRef.current?.focus();
+    if (reply?.id) inputRef.current?.focus();
   }, [reply?.id]);
   useEffect(() => {
     if (!user?.id) return;
@@ -89,16 +89,18 @@ export function MessageComposer({
       setDraftError(text('Draft storage is unavailable. Keep this tab open to retain your text.'));
     }
     setDraftReady(true);
-    const subscription = watch((values) => {
-      try {
-        if (values.content) sessionStorage.setItem(key, values.content);
-        else sessionStorage.removeItem(key);
-      } catch {
-        setDraftError(text('Draft storage is unavailable. Keep this tab open to retain your text.'));
-      }
+    const unsubscribe = subscribe({
+      callback: ({ values }) => {
+        try {
+          if (values.content) sessionStorage.setItem(key, values.content);
+          else sessionStorage.removeItem(key);
+        } catch {
+          setDraftError(text('Draft storage is unavailable. Keep this tab open to retain your text.'));
+        }
+      },
     });
-    return () => subscription.unsubscribe();
-  }, [conversationId, user?.id, reset, watch, text]);
+    return unsubscribe;
+  }, [conversationId, user?.id, reset, subscribe, text]);
   useEffect(
     () => () => {
       clearTimeout(typingTimer.current);
@@ -137,8 +139,8 @@ export function MessageComposer({
     onError: (error) => setSubmitError(toMessage(error, text('Could not send this message.'))),
   });
 
-  function submitMessage({ content }: z.output<typeof messageFormSchema>) {
-    if (disabled || sendMessage.isPending || uploadInFlight.current || voiceActive) return;
+  function onSubmitMessage({ content }: z.output<typeof messageFormSchema>) {
+    if (disabled || sendMessage.isPending || voiceActive) return;
     setSubmitError(null);
     typingChanged(false);
     sendMessage.mutate({
@@ -147,6 +149,14 @@ export function MessageComposer({
       content,
       ...(reply ? { reply_to_id: reply.id } : {}),
     });
+  }
+
+  function onFormSubmit(event: SubmitEvent<HTMLFormElement>) {
+    if (uploadInFlight.current) {
+      event.preventDefault();
+      return;
+    }
+    void handleSubmit(onSubmitMessage)(event);
   }
 
   function insertEmoji({ emoji }: EmojiClickData) {
@@ -265,7 +275,7 @@ export function MessageComposer({
           {text(formState.errors.content.message)}
         </p>
       )}
-      <form className="flex items-end gap-2" onSubmit={handleSubmit(submitMessage)}>
+      <form className="flex items-end gap-2" onSubmit={onFormSubmit}>
         {!voiceActive && (
           <>
             {mentionMembers.some((member) => member.id !== user?.id) && (
@@ -396,7 +406,7 @@ export function MessageComposer({
             />
             <Button
               aria-label={text('Send message')}
-              className="size-11 rounded-full bg-gradient-to-br from-[#087e64] to-[#12a178] text-white shadow-lg shadow-primary/20 hover:brightness-105"
+              className="size-11 rounded-full bg-linear-to-br from-[#087e64] to-[#12a178] text-white shadow-lg shadow-primary/20 hover:brightness-105"
               disabled={disabled || !draftReady || !messageText || sendMessage.isPending || uploading}
               size="icon"
               type="submit"

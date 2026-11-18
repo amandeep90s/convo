@@ -106,10 +106,7 @@ function ConversationContent({ conversationId }: { conversationId: string }) {
     preview.data?.expires_at,
   ]);
   const orderedMessages = useMemo(
-    () =>
-      allMessages.filter(
-        (message) => !message.expires_at || Date.parse(message.expires_at) > Math.max(expiry.now, Date.now()),
-      ),
+    () => allMessages.filter((message) => !message.expires_at || Date.parse(message.expires_at) > expiry.now),
     [allMessages, expiry.now],
   );
   const visiblePins = pins.data?.filter(

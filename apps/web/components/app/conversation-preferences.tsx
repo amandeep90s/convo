@@ -3,6 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { type ChatConversation, updateConversationMemberSchema, updateConversationSchema } from '@repo/shared';
 import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -26,7 +27,17 @@ export function ConversationPreferences({
   const text = useUiText();
   const queryClient = useQueryClient();
   const membership = conversation.members.find((member) => member.user_id === userId);
+  const mutedUntil = membership?.muted_until;
+  const [now, setNow] = useState<number | null>(null);
   const canChangeExpiry = conversation.type === 'private' || membership?.role === 'admin';
+  useEffect(() => {
+    setNow(Date.now());
+    if (!mutedUntil) return;
+    const delay = Date.parse(mutedUntil) - Date.now();
+    if (delay <= 0) return;
+    const timer = setTimeout(() => setNow(Date.now()), delay);
+    return () => clearTimeout(timer);
+  }, [mutedUntil]);
   const expiry = useForm<z.input<typeof expirySchema>, unknown, z.output<typeof expirySchema>>({
     resolver: zodResolver(expirySchema),
     defaultValues: { disappearing_message_ttl_seconds: conversation.disappearing_message_ttl_seconds ?? null },
@@ -132,7 +143,7 @@ export function ConversationPreferences({
               <option value="none">{text('Muted')}</option>
             </select>
           </label>
-          {membership?.muted_until && Date.parse(membership.muted_until) > Date.now() && (
+          {mutedUntil && now !== null && Date.parse(mutedUntil) > now && (
             <p className="text-xs text-muted-foreground">{text('A timed mute is also active and takes priority.')}</p>
           )}
           {notifications.formState.errors.root && (
